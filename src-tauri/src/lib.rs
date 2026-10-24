@@ -4,10 +4,13 @@ mod pty;
 mod session;
 
 #[tauri::command]
-fn create_session(state: tauri::State<'_, Mutex<SessionManager>>) -> Result<String, String> {
+fn create_session(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Mutex<SessionManager>>,
+) -> Result<String, String> {
     let mut manager = state.lock().map_err(|e| e.to_string())?;
 
-    manager.create_session().map_err(|e| e.to_string())
+    manager.create_session(app).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

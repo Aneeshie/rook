@@ -11,12 +11,11 @@ pub struct PtySession {
     master: Box<dyn MasterPty + Send>,
     writer: Box<dyn Write + Send>,
     child: Box<dyn Child + Send + Sync>,
-    output_rx: Receiver<Vec<u8>>,
     reader_thread: std::thread::JoinHandle<()>,
 }
 
 impl PtySession {
-    pub fn new() -> anyhow::Result<Self> {
+    pub fn new() -> anyhow::Result<(Self, Receiver<Vec<u8>>)> {
         //use the native pty implementation for the system
         let pty_system = native_pty_system();
 
@@ -57,17 +56,14 @@ impl PtySession {
 
         let writer = pair.master.take_writer()?;
 
-        Ok(Self {
+        let session = Self {
             master: pair.master,
             writer,
             child,
             reader_thread,
-            output_rx: rx,
-        })
-    }
+        };
 
-    pub fn read_output(&self) -> Option<Vec<u8>> {
-        self.output_rx.recv().ok()
+        Ok((session, rx))
     }
 
     pub fn write_input(&mut self, input: &[u8]) -> Result<()> {

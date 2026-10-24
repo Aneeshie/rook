@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use tauri::Emitter;
+
 use crate::pty::PtySession;
 
 pub struct SessionManager {
@@ -13,12 +15,30 @@ impl SessionManager {
         }
     }
 
-    pub fn create_session(&mut self) -> anyhow::Result<String> {
+    pub fn create_session(&mut self, app: tauri::AppHandle) -> anyhow::Result<String> {
         let id = uuid::Uuid::new_v4().to_string();
 
-        let pty_session = PtySession::new()?;
+        let (pty_session, output_rx) = PtySession::new()?;
 
         self.sessions.insert(id.clone(), pty_session);
+
+        let app = app.clone();
+        let terminal_id = id.clone();
+
+        std::thread::spawn(move || {
+            while let Ok(bytes) = output_rx.recv() {
+                //emit these to react...
+                let payload = serde_json::json!({
+                    "terminal_id": terminal_id,
+                    "data": bytes,
+                });
+
+                if let Err(error) = app.emit("terminal_output", payload) {
+                    eprintln!("Failed to emit terminal output: {error}");
+                    break;
+                }
+            }
+        });
 
         Ok(id)
     }
@@ -32,16 +52,5 @@ impl SessionManager {
         fetched_session.write_input(input)?;
 
         Ok(())
-    }
-
-    pub fn read_from_session(&self, id: &str) -> anyhow::Result<Vec<u8>> {
-        let fetched_session = self
-            .sessions
-            .get(id)
-            .ok_or_else(|| anyhow::anyhow!("Session not found: {id}"))?;
-
-        fetched_session
-            .read_output()
-            .ok_or_else(|| anyhow::anyhow!("Output channel closed."))
     }
 }
