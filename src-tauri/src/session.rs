@@ -1,6 +1,6 @@
-use std::{any, collections::HashMap};
+use std::collections::HashMap;
 
-use crate::pty::{self, PtySession};
+use crate::pty::PtySession;
 
 pub struct SessionManager {
     sessions: HashMap<String, PtySession>,
