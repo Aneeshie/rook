@@ -16,7 +16,7 @@ pub struct PtySession {
 }
 
 impl PtySession {
-    fn new() -> anyhow::Result<Self> {
+    pub fn new() -> anyhow::Result<Self> {
         //use the native pty implementation for the system
         let pty_system = native_pty_system();
 
@@ -66,11 +66,11 @@ impl PtySession {
         })
     }
 
-    fn read_output(&self) -> Option<Vec<u8>> {
+    pub fn read_output(&self) -> Option<Vec<u8>> {
         self.output_rx.recv().ok()
     }
 
-    fn write_input(&mut self, input: &[u8]) -> Result<()> {
+    pub fn write_input(&mut self, input: &[u8]) -> Result<()> {
         self.writer.write_all(input)?;
         self.writer.flush()?;
         Ok(())
