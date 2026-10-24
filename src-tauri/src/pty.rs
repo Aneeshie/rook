@@ -1,3 +1,4 @@
+use std::io::Result;
 use std::sync::mpsc::Receiver;
 use std::{
     io::{Read, Write},
@@ -63,5 +64,15 @@ impl PtySession {
             reader_thread,
             output_rx: rx,
         })
+    }
+
+    fn read_output(&self) -> Option<Vec<u8>> {
+        self.output_rx.recv().ok()
+    }
+
+    fn write_input(&mut self, input: &[u8]) -> Result<()> {
+        self.writer.write_all(input)?;
+        self.writer.flush()?;
+        Ok(())
     }
 }
