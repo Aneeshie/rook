@@ -15,17 +15,12 @@ pub struct PtySession {
 }
 
 impl PtySession {
-    pub fn new() -> anyhow::Result<(Self, Receiver<Vec<u8>>)> {
+    pub fn new(size: PtySize) -> anyhow::Result<(Self, Receiver<Vec<u8>>)> {
         //use the native pty implementation for the system
         let pty_system = native_pty_system();
 
         //create a new pty
-        let pair = pty_system.openpty(PtySize {
-            rows: 30,
-            cols: 80,
-            pixel_height: 0,
-            pixel_width: 0,
-        })?;
+        let pair = pty_system.openpty(size)?;
 
         let cmd = CommandBuilder::new("zsh");
         let child = pair.slave.spawn_command(cmd)?;
@@ -69,6 +64,17 @@ impl PtySession {
     pub fn write_input(&mut self, input: &[u8]) -> Result<()> {
         self.writer.write_all(input)?;
         self.writer.flush()?;
+        Ok(())
+    }
+
+    pub fn resize(&self, rows: u16, cols: u16) -> anyhow::Result<()> {
+        self.master.resize(PtySize {
+            rows,
+            cols,
+            pixel_width: 0,
+            pixel_height: 0,
+        })?;
+
         Ok(())
     }
 }

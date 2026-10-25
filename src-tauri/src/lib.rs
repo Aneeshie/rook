@@ -4,13 +4,31 @@ mod pty;
 mod session;
 
 #[tauri::command]
+fn resize_session(
+    state: tauri::State<'_, Mutex<SessionManager>>,
+    id: String,
+    rows: u16,
+    cols: u16,
+) -> Result<(), String> {
+    let mut manager = state.lock().map_err(|e| e.to_string())?;
+
+    manager
+        .resize_session(&id, rows, cols)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn create_session(
     app: tauri::AppHandle,
     state: tauri::State<'_, Mutex<SessionManager>>,
+    rows: u16,
+    cols: u16,
 ) -> Result<String, String> {
     let mut manager = state.lock().map_err(|e| e.to_string())?;
 
-    manager.create_session(app).map_err(|e| e.to_string())
+    manager
+        .create_session(app, rows, cols)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -31,7 +49,11 @@ pub fn run() {
     tauri::Builder::default()
         .manage(Mutex::new(SessionManager::new()))
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![create_session, write_to_session])
+        .invoke_handler(tauri::generate_handler![
+            create_session,
+            write_to_session,
+            resize_session
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

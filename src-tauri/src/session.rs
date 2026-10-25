@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
-use tauri::Emitter;
+use portable_pty::PtySize;
+use tauri::{CursorIcon::RowResize, Emitter};
 
 use crate::pty::PtySession;
 
@@ -15,10 +16,22 @@ impl SessionManager {
         }
     }
 
-    pub fn create_session(&mut self, app: tauri::AppHandle) -> anyhow::Result<String> {
+    pub fn create_session(
+        &mut self,
+        app: tauri::AppHandle,
+        rows: u16,
+        cols: u16,
+    ) -> anyhow::Result<String> {
         let id = uuid::Uuid::new_v4().to_string();
 
-        let (pty_session, output_rx) = PtySession::new()?;
+        let size = PtySize {
+            rows,
+            cols,
+            pixel_height: 0,
+            pixel_width: 0,
+        };
+
+        let (pty_session, output_rx) = PtySession::new(size)?;
 
         self.sessions.insert(id.clone(), pty_session);
 
@@ -50,6 +63,17 @@ impl SessionManager {
             .ok_or_else(|| anyhow::anyhow!("Session not found: {id}"))?;
 
         fetched_session.write_input(input)?;
+
+        Ok(())
+    }
+
+    pub fn resize_session(&mut self, id: &str, rows: u16, cols: u16) -> anyhow::Result<()> {
+        let session = self
+            .sessions
+            .get_mut(id)
+            .ok_or_else(|| anyhow::anyhow!("Session not found: {id}"))?;
+
+        session.resize(rows, cols)?;
 
         Ok(())
     }
