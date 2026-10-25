@@ -33,7 +33,7 @@ impl SessionManager {
                     "data": bytes,
                 });
 
-                if let Err(error) = app.emit("terminal_output", payload) {
+                if let Err(error) = app.emit("terminal-output", payload) {
                     eprintln!("Failed to emit terminal output: {error}");
                     break;
                 }
