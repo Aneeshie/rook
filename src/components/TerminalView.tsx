@@ -11,6 +11,7 @@ type TerminalOutput = {
 
 const TerminalView = () => {
   const containerRef = useRef<HTMLDivElement>(null);
+
   const terminalRef = useRef<Terminal | null>(null);
 
   const sessionIdRef = useRef<string | null>(null);
@@ -24,48 +25,53 @@ const TerminalView = () => {
     let cancelled = false;
     let fontSize = 14;
 
-    const terminal = new Terminal({
-      fontSize: fontSize
-    });
-
-    const fitAddon = new FitAddon();
-
     let lastRows = 0;
     let lastCols = 0;
 
-    terminalRef.current = terminal;
-    terminal.loadAddon(fitAddon);
-    terminal.open(containerRef.current);
+    const initializeTerminal = () => {
+      const terminal = new Terminal({ fontSize });
+      const fitAddon = new FitAddon();
 
-    terminal.attachCustomKeyEventHandler((event) => {
-      if (!event.metaKey || event.type !== "keydown") {
-        return true;
-      }
+      terminalRef.current = terminal;
+      terminal.loadAddon(fitAddon);
+      terminal.open(containerRef.current!);
 
-      if (event.key === "+" || event.key === "=") {
-        fontSize = Math.min(fontSize + 1, 32);
-      } else if (event.key === "-" || event.key === "_") {
-        fontSize = Math.max(fontSize - 1, 10);
-      } else if (event.key === "0") {
-        fontSize = 14;
-      } else {
-        return true;
-      }
+      return { terminal, fitAddon };
+    };
 
-      terminal.options.fontSize = fontSize;
-      fitAddon.fit();
-      resizePty();
+    const {terminal, fitAddon} = initializeTerminal();
 
-      console.log({
-        fontSize: terminal.options.fontSize,
-        cols: terminal.cols,
-        rows: terminal.rows,
+    const handleFontSizeChange = () => {
+      terminal.attachCustomKeyEventHandler((event) => {
+        if (!event.metaKey || event.type !== "keydown") {
+          return true;
+        }
+
+        if (event.key === "+" || event.key === "=") {
+          fontSize = Math.min(fontSize + 1, 32);
+        } else if (event.key === "-" || event.key === "_") {
+          fontSize = Math.max(fontSize - 1, 10);
+        } else if (event.key === "0") {
+          fontSize = 14;
+        } else {
+          return true;
+        }
+
+        terminal.options.fontSize = fontSize;
+        fitAddon.fit();
+        resizePty();
+
+        console.log({
+          fontSize: terminal.options.fontSize,
+          cols: terminal.cols,
+          rows: terminal.rows,
+        });
+
+        console.log("Font size:", fontSize);
+
+        return false;
       });
-
-      console.log("Font size:", fontSize);
-
-      return false;
-    });
+    };
 
     const resizePty = () => {
       const id = sessionIdRef.current;
@@ -90,6 +96,8 @@ const TerminalView = () => {
       })
     };
 
+    handleFontSizeChange();
+
     const observer = new ResizeObserver(() => {
       fitAddon.fit();
 
@@ -97,7 +105,6 @@ const TerminalView = () => {
     });
 
     observer.observe(containerRef.current);
-
 
     const setup = async () => {
       try {
