@@ -10,11 +10,14 @@ fn resize_session(
     rows: u16,
     cols: u16,
 ) -> Result<(), String> {
-    let mut manager = state.lock().map_err(|e| e.to_string())?;
+    let session = {
+        let manager = state.lock().map_err(|e| e.to_string())?;
+        manager.get_session(&id).map_err(|e| e.to_string())?
+    }; // manager lock released
 
-    manager
-        .resize_session(&id, rows, cols)
-        .map_err(|e| e.to_string())
+    let session = session.lock().map_err(|e| e.to_string())?;
+
+    session.resize(rows, cols).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -37,11 +40,31 @@ fn write_to_session(
     id: String,
     input: String,
 ) -> Result<(), String> {
-    let mut manager = state.lock().map_err(|e| e.to_string())?;
+    let session = {
+        let manager = state.lock().map_err(|e| e.to_string())?;
+        manager.get_session(&id).map_err(|e| e.to_string())?
+    }; // manager lock is released here.
 
-    manager
-        .write_to_session(&id, input.as_bytes())
+    let mut session = session.lock().map_err(|e| e.to_string())?;
+
+    session
+        .write_input(input.as_bytes())
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn remove_session(
+    state: tauri::State<'_, Mutex<SessionManager>>,
+    id: String,
+) -> Result<(), String> {
+    let session = {
+        let mut manager = state.lock().map_err(|e| e.to_string())?;
+        manager.remove_session(&id).map_err(|e| e.to_string())?
+    };
+
+    let mut session = session.lock().map_err(|e| e.to_string())?;
+
+    session.close().map_err(|e| e.to_string())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -52,7 +75,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             create_session,
             write_to_session,
-            resize_session
+            resize_session,
+            remove_session,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

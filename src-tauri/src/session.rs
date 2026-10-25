@@ -1,12 +1,16 @@
-use std::collections::HashMap;
-
-use portable_pty::PtySize;
-use tauri::{CursorIcon::RowResize, Emitter};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 use crate::pty::PtySession;
+use portable_pty::PtySize;
+use tauri::Emitter;
+
+type SharedSession = Arc<Mutex<PtySession>>;
 
 pub struct SessionManager {
-    sessions: HashMap<String, PtySession>,
+    sessions: HashMap<String, SharedSession>,
 }
 
 impl SessionManager {
@@ -33,7 +37,8 @@ impl SessionManager {
 
         let (pty_session, output_rx) = PtySession::new(size)?;
 
-        self.sessions.insert(id.clone(), pty_session);
+        self.sessions
+            .insert(id.clone(), Arc::new(Mutex::new(pty_session)));
 
         let app = app.clone();
         let terminal_id = id.clone();
@@ -56,25 +61,21 @@ impl SessionManager {
         Ok(id)
     }
 
-    pub fn write_to_session(&mut self, id: &str, input: &[u8]) -> anyhow::Result<()> {
-        let fetched_session = self
-            .sessions
-            .get_mut(id)
-            .ok_or_else(|| anyhow::anyhow!("Session not found: {id}"))?;
-
-        fetched_session.write_input(input)?;
-
-        Ok(())
-    }
-
-    pub fn resize_session(&mut self, id: &str, rows: u16, cols: u16) -> anyhow::Result<()> {
+    pub fn get_session(&self, id: &str) -> anyhow::Result<Arc<Mutex<PtySession>>> {
         let session = self
             .sessions
-            .get_mut(id)
+            .get(id)
             .ok_or_else(|| anyhow::anyhow!("Session not found: {id}"))?;
 
-        session.resize(rows, cols)?;
+        Ok(Arc::clone(session))
+    }
 
-        Ok(())
+    pub fn remove_session(&mut self, id: &str) -> anyhow::Result<Arc<Mutex<PtySession>>> {
+        let session = self
+            .sessions
+            .remove(id)
+            .ok_or_else(|| anyhow::anyhow!("Session not found: {id}"))?;
+
+        Ok(session)
     }
 }
