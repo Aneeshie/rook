@@ -10,11 +10,14 @@ fn resize_session(
     rows: u16,
     cols: u16,
 ) -> Result<(), String> {
-    let mut manager = state.lock().map_err(|e| e.to_string())?;
+    let session = {
+        let manager = state.lock().map_err(|e| e.to_string())?;
+        manager.get_session(&id).map_err(|e| e.to_string())?
+    }; // manager lock released
 
-    manager
-        .resize_session(&id, rows, cols)
-        .map_err(|e| e.to_string())
+    let session = session.lock().map_err(|e| e.to_string())?;
+
+    session.resize(rows, cols).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -37,10 +40,15 @@ fn write_to_session(
     id: String,
     input: String,
 ) -> Result<(), String> {
-    let mut manager = state.lock().map_err(|e| e.to_string())?;
+    let session = {
+        let manager = state.lock().map_err(|e| e.to_string())?;
+        manager.get_session(&id).map_err(|e| e.to_string())?
+    }; // manager lock is released here.
 
-    manager
-        .write_to_session(&id, input.as_bytes())
+    let mut session = session.lock().map_err(|e| e.to_string())?;
+
+    session
+        .write_input(input.as_bytes())
         .map_err(|e| e.to_string())
 }
 
