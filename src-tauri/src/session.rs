@@ -69,4 +69,13 @@ impl SessionManager {
 
         Ok(Arc::clone(session))
     }
+
+    pub fn remove_session(&mut self, id: &str) -> anyhow::Result<Arc<Mutex<PtySession>>> {
+        let session = self
+            .sessions
+            .remove(id)
+            .ok_or_else(|| anyhow::anyhow!("Session not found: {id}"))?;
+
+        Ok(session)
+    }
 }

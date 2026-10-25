@@ -11,7 +11,7 @@ pub struct PtySession {
     master: Box<dyn MasterPty + Send>,
     writer: Box<dyn Write + Send>,
     child: Box<dyn Child + Send + Sync>,
-    reader_thread: std::thread::JoinHandle<()>,
+    reader_thread: Option<std::thread::JoinHandle<()>>,
 }
 
 impl PtySession {
@@ -25,10 +25,11 @@ impl PtySession {
         let cmd = CommandBuilder::new("zsh");
         let child = pair.slave.spawn_command(cmd)?;
 
+        drop(pair.slave); // make sure we don't hold the slave open ourselves
+
         let mut reader = pair.master.try_clone_reader()?;
 
         let (tx, rx) = channel();
-
         let reader_thread = std::thread::spawn(move || {
             let mut buffer = [0u8; 1024];
 
@@ -55,7 +56,7 @@ impl PtySession {
             master: pair.master,
             writer,
             child,
-            reader_thread,
+            reader_thread: Some(reader_thread),
         };
 
         Ok((session, rx))
@@ -75,6 +76,29 @@ impl PtySession {
             pixel_height: 0,
         })?;
 
+        Ok(())
+    }
+
+    pub fn close(&mut self) -> anyhow::Result<()> {
+        // terminate and reap the child process; ignore errors if it already exited
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+
+        // Only join if the reader has already seen EOF. A background process
+        // still holding the slave fd would otherwise block join() forever.
+        if let Some(handle) = self.reader_thread.take() {
+            let deadline = std::time::Instant::now() + std::time::Duration::from_millis(100);
+            while !handle.is_finished() && std::time::Instant::now() < deadline {
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+            if handle.is_finished() {
+                handle
+                    .join()
+                    .map_err(|_| anyhow::anyhow!("PTY reader thread panicked"))?;
+            }
+            // otherwise the handle is dropped, detaching the thread; it exits
+            // once the PTY closes or the receiver is dropped.
+        }
         Ok(())
     }
 }
