@@ -11,16 +11,14 @@ const TerminalTab = ({ index, title, active, onSelect, onClose }: TerminalTabPro
     <div
       role="tab"
       aria-selected={active}
-      className={`group flex h-full items-center border-l border-r border-[#1c212b] text-sm ${
-        active
-          ? 'border-b-2 border-b-[#e5b05a] bg-[#11141b]'
-          : 'border-b-2 border-b-transparent border-l-transparent border-r-transparent'
+      className={`group flex h-full items-center border-b-2 text-sm ${
+        active ? 'border-b-[#e5b05a] bg-[#11141b]' : 'border-b-transparent'
       }`}
     >
       <button
         type="button"
         onClick={onSelect}
-        className={`flex h-full cursor-pointer items-center gap-2 pl-4 pr-2 ${
+        className={`flex h-full cursor-pointer items-center gap-2 pl-3 pr-1 ${
           active ? 'text-neutral-100' : 'text-neutral-400 hover:text-neutral-200'
         }`}
       >
@@ -31,7 +29,7 @@ const TerminalTab = ({ index, title, active, onSelect, onClose }: TerminalTabPro
         type="button"
         aria-label={`Close tab ${index}`}
         onClick={onClose}
-        className="mr-2 cursor-pointer rounded px-1 text-neutral-500 hover:bg-[#1c212b] hover:text-neutral-100"
+        className="mr-2 cursor-pointer rounded px-1 text-neutral-600 group-hover:text-neutral-400 hover:bg-[#1c212b] hover:text-neutral-100"
       >
         ×
       </button>

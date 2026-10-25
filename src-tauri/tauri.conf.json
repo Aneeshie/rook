@@ -14,7 +14,12 @@
       {
         "title": "nara-code",
         "width": 800,
-        "height": 600
+        "height": 600,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": { "x": 14, "y": 14 },
+        "theme": "Dark",
+        "backgroundColor": "#0b0d12"
       }
     ],
     "security": {

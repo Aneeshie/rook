@@ -44,13 +44,11 @@ function App() {
 
   return (
     <main className="flex h-dvh w-screen flex-col overflow-hidden bg-[#0b0d12] font-mono text-neutral-300">
-      <header className="flex h-12 shrink-0 items-stretch border-b border-[#1c212b]">
-        <div className="flex items-center gap-2 px-5 text-sm text-neutral-100">
-          <span className="size-2 rounded-full bg-[#e5b05a]" />
-          <span>work</span>
-          <span className="text-neutral-500">▸</span>
-          <span>api</span>
-        </div>
+      {/* Overlay title bar: the native traffic lights sit on top of this header (hence the left padding). */}
+      <header
+        data-tauri-drag-region
+        className="flex h-10 shrink-0 select-none items-stretch border-b border-[#1c212b] pl-[78px]"
+      >
 
         <div role="tablist" className="flex items-stretch">
           {tabs.map((tab, position) => (
@@ -69,10 +67,12 @@ function App() {
           type="button"
           aria-label="New tab"
           onClick={addTab}
-          className="cursor-pointer px-4 text-sm text-neutral-400 hover:text-neutral-100"
+          className="cursor-pointer px-3 text-sm text-neutral-500 hover:text-neutral-100"
         >
           +
         </button>
+
+        <div data-tauri-drag-region className="flex-1" />
       </header>
 
       <div className="relative min-h-0 flex-1">
