@@ -15,10 +15,17 @@ const closeSession = (id: string) =>
     console.error("Failed to close terminal session:", error);
   });
 
-const TerminalView = () => {
+type TerminalViewProps = {
+  active: boolean;
+}
+
+const TerminalView = ({ active }: TerminalViewProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const terminalRef = useRef<Terminal | null>(null);
+
+  // set by the lifecycle effect; refits and focuses this terminal when it becomes visible
+  const activateRef = useRef<(() => void) | undefined>(undefined);
 
   useEffect(() => {
 
@@ -101,6 +108,14 @@ const TerminalView = () => {
 
     handleFontSizeChange();
 
+    activateRef.current = () => {
+      if (cancelled) return;
+
+      fitAddon.fit();
+      resizePty();
+      terminal.focus();
+    };
+
     const observer = new ResizeObserver(() => {
       if (cancelled) return;
 
@@ -117,6 +132,7 @@ const TerminalView = () => {
       if (cleanedUp) return;
       cleanedUp = true;
       cancelled = true;
+      activateRef.current = undefined;
 
       unlisten?.();
       unlisten = undefined;
@@ -209,8 +225,12 @@ const TerminalView = () => {
     return cleanup;
   }, [])
 
+  useEffect(() => {
+    if (active) activateRef.current?.();
+  }, [active])
+
   return (
-    <div ref={containerRef} className='min-h-0 min-w-0 flex-1 overflow-hidden' />
+    <div ref={containerRef} className='h-full w-full min-h-0 min-w-0 overflow-hidden' />
   )
 }
 
