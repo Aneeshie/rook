@@ -69,36 +69,4 @@ impl SessionManager {
 
         Ok(Arc::clone(session))
     }
-
-    pub fn write_to_session(&mut self, id: &str, input: &[u8]) -> anyhow::Result<()> {
-        let fetched_session = self
-            .sessions
-            .get(id)
-            .ok_or_else(|| anyhow::anyhow!("Session not found: {id}"))?;
-
-        let fetched_session = Arc::clone(fetched_session);
-
-        let mut session = fetched_session
-            .lock()
-            .map_err(|e| anyhow::anyhow!("Session lock poisoned: {e}"))?;
-
-        session.write_input(input)?;
-
-        Ok(())
-    }
-
-    pub fn resize_session(&mut self, id: &str, rows: u16, cols: u16) -> anyhow::Result<()> {
-        let session = self
-            .sessions
-            .get(id)
-            .ok_or_else(|| anyhow::anyhow!("Session not found: {id}"))?;
-
-        let session = session
-            .lock()
-            .map_err(|e| anyhow::anyhow!("Session lock poisoned: {e}"))?;
-
-        session.resize(rows, cols)?;
-
-        Ok(())
-    }
 }
