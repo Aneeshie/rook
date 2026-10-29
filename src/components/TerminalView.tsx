@@ -15,12 +15,19 @@ const closeSession = (id: string) =>
     console.error("Failed to close terminal session:", error);
   });
 
-type TerminalViewProps = {
-  active: boolean;
+type TerminalExit = {
+  terminal_id: string;
 }
 
-const TerminalView = ({ active }: TerminalViewProps) => {
+type TerminalViewProps = {
+  active: boolean;
+  onExit: () => void;
+}
+
+const TerminalView = ({ active, onExit }: TerminalViewProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const onExitRef = useRef(onExit);
+  onExitRef.current = onExit;
 
   const terminalRef = useRef<Terminal | null>(null);
 
@@ -31,6 +38,8 @@ const TerminalView = ({ active }: TerminalViewProps) => {
 
     if (!containerRef.current) return;
     let unlisten: (() => void) | undefined;
+    let unlistenExit: (() => void) | undefined;
+    let pendingExits: string[] = [];
     let inputSubscription: IDisposable | undefined;
     let pendingOutput: TerminalOutput[] = [];
     let cancelled = false;
@@ -136,6 +145,9 @@ const TerminalView = ({ active }: TerminalViewProps) => {
 
       unlisten?.();
       unlisten = undefined;
+      unlistenExit?.();
+      unlistenExit = undefined;
+      pendingExits = [];
       observer.disconnect();
       inputSubscription?.dispose();
       inputSubscription = undefined;
@@ -169,13 +181,31 @@ const TerminalView = ({ active }: TerminalViewProps) => {
 
           terminal.write(new Uint8Array(output.data))
         });
-
         if (cancelled) {
           stopListening();
           return;
         }
 
         unlisten = stopListening;
+
+        const stopListeningExit = await listen<TerminalExit>("terminal-exit", (event) => {
+          if (cancelled) return;
+
+          if (sessionId === null) {
+            pendingExits.push(event.payload.terminal_id);
+            return;
+          }
+          if (event.payload.terminal_id !== sessionId) return;
+
+          onExitRef.current();
+        });
+
+        if (cancelled) {
+          stopListeningExit();
+          return;
+        }
+
+        unlistenExit = stopListeningExit;
 
         // size the terminal before asking the backend for a PTY
         fitAddon.fit();
@@ -201,6 +231,12 @@ const TerminalView = ({ active }: TerminalViewProps) => {
         }
 
         pendingOutput = [];
+
+        // the shell may have exited before we knew our session id
+        if (pendingExits.includes(createdId)) {
+          onExitRef.current();
+          return;
+        }
 
         // send keyboard input to rust
         inputSubscription = terminal.onData((data: string) => {

@@ -83,7 +83,7 @@ function App() {
               tab.id === activeId ? '' : 'pointer-events-none invisible'
             }`}
           >
-            <TerminalView active={tab.id === activeId} />
+            <TerminalView active={tab.id === activeId} onExit={() => closeTab(tab.id)} />
           </div>
         ))}
       </div>
