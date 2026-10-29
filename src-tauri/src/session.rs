@@ -56,6 +56,11 @@ impl SessionManager {
                     break;
                 }
             }
+
+            let _ = app.emit(
+                "terminal-exit",
+                serde_json::json!({ "terminal_id": terminal_id }),
+            );
         });
 
         Ok(id)
