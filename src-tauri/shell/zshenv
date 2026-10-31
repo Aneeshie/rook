@@ -1,0 +1,5 @@
+# zsh reads this first, because ZDOTDIR points at our folder.
+# Load the user's own .zshenv, but keep ZDOTDIR pointing at us so our .zshrc still runs.
+if [[ -f "$NARA_USER_ZDOTDIR/.zshenv" ]]; then
+  source "$NARA_USER_ZDOTDIR/.zshenv"
+fi

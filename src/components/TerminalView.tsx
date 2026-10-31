@@ -3,7 +3,7 @@ import { listen } from '@tauri-apps/api/event';
 import { FitAddon } from '@xterm/addon-fit';
 import { Terminal } from '@xterm/xterm';
 import type { IDisposable } from '@xterm/xterm';
-import { useEffect, useRef} from 'react'
+import { useEffect, useRef } from 'react'
 import { matchAction } from '../keybindings';
 
 type TerminalOutput = {
@@ -24,9 +24,10 @@ type TerminalViewProps = {
   active: boolean;
   fontSize: number;
   onExit: () => void;
+  onCwdChange: (cwd: string) => void;
 }
 
-const TerminalView = ({ active, fontSize, onExit }: TerminalViewProps) => {
+const TerminalView = ({ active, fontSize, onExit, onCwdChange }: TerminalViewProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const onExitRef = useRef(onExit);
   onExitRef.current = onExit;
@@ -34,6 +35,9 @@ const TerminalView = ({ active, fontSize, onExit }: TerminalViewProps) => {
   // read once by the lifecycle effect so a new terminal starts at the current size
   const fontSizeRef = useRef(fontSize);
   fontSizeRef.current = fontSize;
+
+  const onCwdChangeRef = useRef(onCwdChange);
+  onCwdChangeRef.current = onCwdChange
 
   const terminalRef = useRef<Terminal | null>(null);
 
@@ -62,11 +66,11 @@ const TerminalView = ({ active, fontSize, onExit }: TerminalViewProps) => {
 
     const initializeTerminal = () => {
       const terminal = new Terminal({
-              fontSize: fontSizeRef.current,
-              fontFamily: 'ui-monospace, Menlo, monospace',
-              cursorBlink: true,
-              theme: { background: '#0b0d12', foreground: '#c9d1d9', cursor: '#c9d1d9' },
-            });
+        fontSize: fontSizeRef.current,
+        fontFamily: 'ui-monospace, Menlo, monospace',
+        cursorBlink: true,
+        theme: { background: '#0b0d12', foreground: '#c9d1d9', cursor: '#c9d1d9' },
+      });
       const fitAddon = new FitAddon();
 
       terminalRef.current = terminal;
@@ -76,10 +80,20 @@ const TerminalView = ({ active, fontSize, onExit }: TerminalViewProps) => {
       return { terminal, fitAddon };
     };
 
-    const {terminal, fitAddon} = initializeTerminal();
+    const { terminal, fitAddon } = initializeTerminal();
 
     // app shortcuts belong to App, so xterm must not send them to the shell
     terminal.attachCustomKeyEventHandler((event) => !matchAction(event));
+
+    terminal.parser.registerOscHandler(7, (data) => {
+      try {
+        const path = decodeURIComponent(new URL(data).pathname);
+        onCwdChangeRef.current(path);
+      } catch {
+        // not a valid file ignore it
+      }
+      return true;
+    })
 
     const resizePty = () => {
       const id = sessionId;

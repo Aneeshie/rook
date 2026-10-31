@@ -20,19 +20,27 @@ const MAX_FONT_SIZE = 32;
 
 type Tab = {
   id: string;
-  title: string;
   root: PaneNode;
   focusedId: string;
+  cwds: Record<string, string>; // paneId -> that pane's current dir
 };
 
 const createTab = (): Tab => {
   const paneId = crypto.randomUUID();
   return {
     id: crypto.randomUUID(),
-    title: 'zsh',
     root: { kind: 'leaf', id: paneId },
     focusedId: paneId,
+    cwds: {}
   };
+}
+
+const shortenHome = (path: string) => path.replace(/^\/(Users|home)\/[^/]+/, '~');
+
+// the focused pane's dir
+const tabTitle = (tab: Tab) => {
+  const cwd = tab.cwds[tab.focusedId];
+  return cwd ? shortenHome(cwd) : 'zsh';
 }
 
 function App() {
@@ -86,6 +94,10 @@ function App() {
 
   const setRoot = (tabId: string, root: PaneNode) => {
     updateTab(tabId, (tab) => ({ ...tab, root }));
+  };
+
+  const setPaneCwd = (tabId: string, paneId: string, cwd: string) => {
+    updateTab(tabId, (tab) => ({ ...tab, cwds: { ...tab.cwds, [paneId]: cwd } }));
   };
 
   const closeTab = (id: string) => {
@@ -174,6 +186,8 @@ function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [tabs, activeId]);
 
+  const activeTab = tabs.find((tab) => tab.id === activeId);
+
   return (
     <main className="flex h-dvh w-screen flex-col overflow-hidden bg-[#0b0d12] font-mono text-neutral-300">
       {/* Overlay title bar: the native traffic lights sit on top of this header (hence the left padding). */}
@@ -187,7 +201,7 @@ function App() {
             <TerminalTab
               key={tab.id}
               index={position + 1}
-              title={tab.title}
+              title={tabTitle(tab)}
               active={tab.id === activeId}
               onSelect={() => setActiveId(tab.id)}
               onClose={() => closeTab(tab.id)}
@@ -222,6 +236,7 @@ function App() {
               onFocus={(paneId) => focusPane(tab.id, paneId)}
               onPaneExit={(paneId) => closePaneInTab(tab.id, paneId)}
               onRootChange={(root) => setRoot(tab.id, root)}
+              onPaneCwd={(paneId, cwd) => setPaneCwd(tab.id, paneId, cwd)}
             />
           </div>
         ))}
@@ -230,7 +245,7 @@ function App() {
       <footer className="flex h-8 shrink-0 items-center gap-4 border-t border-[#1c212b] text-xs">
         <span className="flex h-full items-center bg-[#e5b05a] px-3 font-bold text-black">TERM</span>
         <span className="flex items-center gap-2 text-neutral-300">
-          <span className="size-2 rounded-full bg-[#e5b05a]" />work ▸ api
+          <span className="size-2 rounded-full bg-[#e5b05a]" />{activeTab ? tabTitle(activeTab) : ''}
         </span>
         <span className="ml-auto pr-4 text-neutral-500">
           {tabs.length} {tabs.length === 1 ? 'tab' : 'tabs'}

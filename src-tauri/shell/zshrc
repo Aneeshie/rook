@@ -1,0 +1,12 @@
+# Point ZDOTDIR back at the user's real folder, so their config sees the value it expects
+ZDOTDIR="$NARA_USER_ZDOTDIR"
+unset NARA_USER_ZDOTDIR
+
+# Load the user's own .zshrc: their prompt, theme, aliases, all unchanged
+if [[ -f "$ZDOTDIR/.zshrc" ]]; then
+  source "$ZDOTDIR/.zshrc"
+fi
+
+# Our addition: before every prompt, announce the current directory (OSC 7)
+_nara_report_cwd() { printf '\e]7;file://%s%s\a' "$HOST" "$PWD"; }
+precmd_functions+=(_nara_report_cwd)
