@@ -16,10 +16,8 @@ import PaneLayout, { PaneInfo } from "./components/PaneLayout";
 import { matchAction } from "./keybindings";
 import ShortcutSheet from "./components/ShortcutSheet";
 import WorkspaceSwitcher from "./components/WorkspaceSwitcher";
-
-const DEFAULT_FONT_SIZE = 14;
-const MIN_FONT_SIZE = 10;
-const MAX_FONT_SIZE = 32;
+import { applyUiTheme, fontById, themeById } from "./theme";
+import { DEFAULT_SETTINGS, loadSettings, saveSettings, TERMINAL_FONT_SIZE } from "./settings";
 
 type Tab = {
   id: string;
@@ -79,10 +77,9 @@ const STORAGE_KEY = 'nara:session';
 type SavedSession = {
   workspaces: Workspace[];
   activeWorkspaceId: string;
-  fontSize: number;
 };
 
-const toSaved = (workspaces: Workspace[], activeWorkspaceId: string, fontSize: number): SavedSession => ({
+const toSaved = (workspaces: Workspace[], activeWorkspaceId: string): SavedSession => ({
   workspaces: workspaces.map((w) => ({
     ...w,
     tabs: w.tabs.map((tab) => ({
@@ -91,7 +88,6 @@ const toSaved = (workspaces: Workspace[], activeWorkspaceId: string, fontSize: n
     })),
   })),
   activeWorkspaceId,
-  fontSize,
 });
 
 // a missing, broken or outdated save must never stop the app from starting
@@ -123,8 +119,20 @@ function App() {
     workspaces.some((w) => w.id === saved?.activeWorkspaceId) ? saved!.activeWorkspaceId : workspaces[0].id,
   );
   // shared by every terminal in every tab, so new tabs and panes start at the same size
-  const [fontSize, setFontSize] = useState(saved?.fontSize ?? DEFAULT_FONT_SIZE);
+  const [settings, setSettings] = useState(loadSettings);
   const [overlay, setOverlay] = useState<'shortcuts' | 'workspaces' | null>(null);
+
+  const theme = themeById(settings.theme);
+  const font = fontById(settings.font);
+
+  // repaint the UI and remember the choice whenever a setting changes
+  useEffect(() => {
+    applyUiTheme(theme);
+    const root = document.documentElement.style;
+    root.setProperty('--ui-font', font.family);
+    root.setProperty('--ui-size', `${settings.uiFontSize}px`);
+    saveSettings(settings);
+  }, [settings]);
   // bumped when an overlay closes, so the active terminal gets the keyboard back
   const [refocus, setRefocus] = useState(0);
   const closeOverlay = useCallback(() => {
@@ -287,13 +295,13 @@ function App() {
   useEffect(() => {
     const timer = setTimeout(() => {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(toSaved(workspaces, activeWorkspaceId, fontSize)));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(toSaved(workspaces, activeWorkspaceId)));
       } catch {
         // storage full or unavailable: keep working, just without saving
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [workspaces, activeWorkspaceId, fontSize]);
+  }, [workspaces, activeWorkspaceId]);
 
   // re-registered whenever tabs or activeId change, so the handler never sees stale state
   useEffect(() => {
@@ -328,10 +336,12 @@ function App() {
       }
 
       if (action.type === 'fontSize') {
-        setFontSize((size) => {
-          if (action.change === 'increase') return Math.min(size + 1, MAX_FONT_SIZE);
-          if (action.change === 'decrease') return Math.max(size - 1, MIN_FONT_SIZE);
-          return DEFAULT_FONT_SIZE;
+        setSettings((current) => {
+          const size = current.terminalFontSize;
+          const { min, max } = TERMINAL_FONT_SIZE;
+          if (action.change === 'increase') return { ...current, terminalFontSize: Math.min(size + 1, max) };
+          if (action.change === 'decrease') return { ...current, terminalFontSize: Math.max(size - 1, min) };
+          return { ...current, terminalFontSize: DEFAULT_SETTINGS.terminalFontSize };
         });
         return;
       }
@@ -355,21 +365,21 @@ function App() {
   const exitCode = activePane.status?.state === 'done' ? activePane.status.exitCode : 0;
 
   return (
-    <main className="relative flex h-dvh w-screen flex-col overflow-hidden bg-[#0b0d12] font-mono text-neutral-300">
+    <main className="relative flex h-dvh w-screen flex-col overflow-hidden bg-bg font-mono text-soft">
       {/* Overlay title bar: the native traffic lights sit on top of this header (hence the left padding). */}
       <header data-tauri-drag-region className="flex h-10 shrink-0 select-none items-stretch pl-[78px]">
         {/* the current workspace; click (or ⌘E) to switch */}
         <button
           type="button"
           onClick={() => setOverlay('workspaces')}
-          className="my-2 mr-2 flex cursor-pointer items-center gap-2 rounded-md px-2 text-[13px] text-neutral-300 transition-colors hover:bg-white/5"
+          className="my-2 mr-2 flex cursor-pointer items-center gap-2 rounded-md px-2 text-ui text-soft transition-colors hover:bg-fg/5"
         >
           <span className="size-2 rounded-full" style={{ background: workspace.color }} />
           <span className="max-w-32 truncate">{workspace.name}</span>
-          <ChevronDown size={12} className="text-neutral-600" />
+          <ChevronDown size={12} className="text-faint" />
         </button>
 
-        <span className="my-3 mr-1 w-px bg-white/[0.06]" />
+        <span className="my-3 mr-1 w-px bg-fg/[0.06]" />
 
         <div role="tablist" className="flex items-stretch">
           {tabs.map((tab, position) => (
@@ -390,7 +400,7 @@ function App() {
           type="button"
           aria-label="New tab"
           onClick={addTab}
-          className="flex cursor-pointer items-center px-2 text-neutral-600 transition-colors hover:text-neutral-200"
+          className="flex cursor-pointer items-center px-2 text-faint transition-colors hover:text-fg"
         >
           <Plus size={14} />
         </button>
@@ -413,7 +423,9 @@ function App() {
                   root={tab.root}
                   active={visible}
                   focusedId={tab.focusedId}
-                  fontSize={fontSize}
+                  fontSize={settings.terminalFontSize}
+                  fontFamily={font.family}
+                  theme={theme.terminal}
                   refocus={refocus}
                   startCwds={Object.fromEntries(Object.entries(tab.panes).map(([id, pane]) => [id, pane.cwd]))}
                   onFocus={(paneId) => focusPane(tab.id, paneId)}
@@ -428,23 +440,25 @@ function App() {
       </div>
 
       {/* one quiet line: where you are, which branch, and a failure only when there is one */}
-      <footer className="flex h-7 shrink-0 select-none items-center gap-4 px-4 text-[11px] text-neutral-500">
+      <footer className="flex h-7 shrink-0 select-none items-center gap-4 px-4 text-ui-sm text-muted">
         <span className="truncate">{activeCwd}</span>
         {activePane.branch && (
-          <span className="flex shrink-0 items-center gap-1 text-[#6ea8fe]/80">
+          <span className="flex shrink-0 items-center gap-1 text-info/80">
             <GitBranch size={11} />
             {activePane.branch}
           </span>
         )}
-        {exitCode !== 0 && <span className="shrink-0 text-[#f47067]">exit {exitCode}</span>}
+        {exitCode !== 0 && <span className="shrink-0 text-danger">exit {exitCode}</span>}
 
-        <button
-          type="button"
-          onClick={() => setOverlay('shortcuts')}
-          className="ml-auto shrink-0 cursor-pointer text-neutral-600 transition-colors hover:text-neutral-300"
-        >
-          ⌘/
-        </button>
+        <span className="ml-auto flex shrink-0 items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setOverlay('shortcuts')}
+            className="cursor-pointer text-faint transition-colors hover:text-soft"
+          >
+            ⌘/
+          </button>
+        </span>
       </footer>
 
       {overlay === 'shortcuts' && <ShortcutSheet onClose={closeOverlay} />}

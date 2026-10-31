@@ -2,15 +2,15 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { FitAddon } from '@xterm/addon-fit';
 import { Terminal } from '@xterm/xterm';
-import type { IDisposable, IMarker } from '@xterm/xterm';
+import type { IDisposable, IMarker, ITheme } from '@xterm/xterm';
 import { useEffect, useRef } from 'react'
 import { matchAction } from '../keybindings';
-import { FONT_FAMILY, TERMINAL_THEME } from '../theme';
 
-const FAILED_COLOR = '#f47067';
-const FAILED_TINT = 'rgba(244, 112, 103, 0.07)';
-const FAILED_ACCENT = 'rgba(244, 112, 103, 0.7)';
-const FAILED_BADGE = 'rgba(244, 112, 103, 0.15)';
+// the failed-command block is drawn in the theme's red, at these strengths
+const FAILED_TINT = 7; // %
+const FAILED_ACCENT = 70;
+const FAILED_BADGE = 15;
+const withAlpha = (color: string, percent: number) => `color-mix(in srgb, ${color} ${percent}%, transparent)`;
 
 
 export type CommandStatus = | { state: 'running' } | { state: 'done', exitCode: number };
@@ -39,6 +39,8 @@ type TerminalViewProps = {
   onSizeChange: (cols: number, rows: number) => void;
   refocus: number; // bumped by App to give the active terminal its keyboard focus back
   startCwd?: string; // the folder the shell starts in; read once, when the session is created
+  fontFamily: string;
+  theme: ITheme;
 }
 
 const TerminalView = ({
@@ -52,6 +54,8 @@ const TerminalView = ({
   onSizeChange,
   refocus,
   startCwd,
+  fontFamily,
+  theme,
 }: TerminalViewProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const onExitRef = useRef(onExit);
@@ -60,6 +64,12 @@ const TerminalView = ({
   // read once by the lifecycle effect so a new terminal starts at the current size
   const fontSizeRef = useRef(fontSize);
   fontSizeRef.current = fontSize;
+
+  // also read live by the failed-command decorations, which redraw on scroll
+  const fontFamilyRef = useRef(fontFamily);
+  fontFamilyRef.current = fontFamily;
+  const themeRef = useRef(theme);
+  themeRef.current = theme;
 
   const onCwdChangeRef = useRef(onCwdChange);
   onCwdChangeRef.current = onCwdChange
@@ -108,9 +118,9 @@ const TerminalView = ({
     const initializeTerminal = () => {
       const terminal = new Terminal({
         fontSize: fontSizeRef.current,
-        fontFamily: FONT_FAMILY,
+        fontFamily: fontFamilyRef.current,
         cursorBlink: true,
-        theme: TERMINAL_THEME,
+        theme: themeRef.current,
         // registerDecoration is still "proposed" API and throws without this
         allowProposedApi: true,
       });
@@ -170,8 +180,9 @@ const TerminalView = ({
         layer: 'bottom',
       });
       block?.onRender((element) => {
-        element.style.background = FAILED_TINT;
-        element.style.boxShadow = `inset 3px 0 0 ${FAILED_ACCENT}`; // a left accent bar that takes no space
+        const red = themeRef.current.red ?? '#f47067';
+        element.style.background = withAlpha(red, FAILED_TINT);
+        element.style.boxShadow = `inset 3px 0 0 ${withAlpha(red, FAILED_ACCENT)}`; // a left accent bar that takes no space
         element.style.borderRadius = '4px';
         element.style.pointerEvents = 'none'; // don't block selecting the text underneath
       });
@@ -185,10 +196,11 @@ const TerminalView = ({
       badge?.onRender((element) => {
         element.textContent = label;
         element.style.right = '0'; // anchor: 'right' alone doesn't place it without an x offset
-        element.style.fontFamily = FONT_FAMILY;
+        element.style.fontFamily = fontFamilyRef.current;
         element.style.fontSize = `${Math.max((terminal.options.fontSize ?? 14) - 2, 10)}px`;
-        element.style.color = FAILED_COLOR;
-        element.style.background = FAILED_BADGE;
+        const red = themeRef.current.red ?? '#f47067';
+        element.style.color = red;
+        element.style.background = withAlpha(red, FAILED_BADGE);
         element.style.borderRadius = '4px';
         element.style.textAlign = 'center';
         element.style.pointerEvents = 'none';
@@ -406,6 +418,26 @@ const TerminalView = ({
     terminal.options.fontSize = fontSize;
     refitRef.current?.();
   }, [fontSize])
+
+  // a new font changes the cell size, so wait for it to load before measuring, then refit
+  useEffect(() => {
+    let cancelled = false;
+    document.fonts.load(`${fontSizeRef.current}px ${fontFamily}`).finally(() => {
+      const terminal = terminalRef.current;
+      if (cancelled || !terminal || terminal.options.fontFamily === fontFamily) return;
+
+      terminal.options.fontFamily = fontFamily;
+      refitRef.current?.();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [fontFamily])
+
+  useEffect(() => {
+    const terminal = terminalRef.current;
+    if (terminal) terminal.options.theme = theme;
+  }, [theme])
 
   return (
     <div ref={containerRef} className='h-full w-full min-h-0 min-w-0 overflow-hidden' />
