@@ -97,3 +97,227 @@ export function computeLayout(root: PaneNode, bounds: Rect): Layout {
   visit(root, bounds, []); // L(root, window)
   return { panes, dividers };
 }
+
+// all pane ids, left to right / top to bottom
+export function leaves(node: PaneNode): string[] {
+  return node.kind === 'leaf' ? [node.id] : node.children.flatMap(leaves);
+}
+
+// path to the pane with this id, eg [1,0 ] null if its not there in the tree
+export function findPath(node: PaneNode, id: string): number[] | null {
+  if (node.kind === 'leaf') return node.id === id ? [] : null;
+
+  for (let i = 0; i < node.children.length; i++) {
+    const rest = findPath(node.children[i], id);
+    if (rest) return [i, ...rest]; // found inside child i so the path starts with i
+  }
+  return null;
+}
+
+//follow a path down from the root
+export function getNode(node: PaneNode, path: number[]): PaneNode {
+  let current = node;
+  for (const i of path) {
+    if (current.kind === 'leaf') throw new Error('path goes through a leaf');
+    current = current.children[i];
+  }
+
+  return current;
+}
+
+// replace the node at path with update(node), copying only the nodes along the path
+export function updateAt(
+  node: PaneNode,
+  path: number[],
+  update: (target: PaneNode) => PaneNode,
+): PaneNode {
+  if (path.length === 0) return update(node) // we have arrived
+
+  if (node.kind === 'leaf') throw new Error('path goes through a leaf')
+
+  const [i, ...rest] = path;
+  const children = [...node.children]; // copy this level
+  children[i] = updateAt(children[i], rest, update); // recurse into child i
+
+  return { ...node, children }
+
+}
+
+// split part
+// direction gives us -> the axis: left/right means side by side (row), up/down means stacked(col),
+// -> which side the new pane goes: right/down means after, left/up means before
+
+// there are two cases 
+// case -1 -> the parent already cuts this axis. Add new pane as a sibling and halve the pane's fraction.
+// case - 2 -> otherwise (including when pane is the root ) replace the pane with a new split [pane,new], at [0.5,0.5]
+
+// case -1 -> fi -> fi/2, fi/2 (parent has a fraction f0...fk-1 and pane is child i)
+// case -2 the pane's slot keeps its fraction fi in the parent, inside the slot there's a new split with [1/2, 1/2]/ Each 
+// half is fi * 1/2 of the parent, the same "multiply down the path" rule as before
+
+export type Direction = 'left' | 'right' | 'up' | 'down';
+
+const axisOf = (direction: Direction): Axis =>
+  direction === 'left' || direction === 'right' ? 'row' : 'column';
+
+// right/down put the new pane after the current one left/up before it
+const isAfter = (direction: Direction) => direction === 'right' || direction === 'down';
+
+export function splitPane(
+  root: PaneNode,
+  targetId: string,
+  newId: string,
+  direction: Direction,
+): PaneNode {
+  const path = findPath(root, targetId)
+  if (!path) return root;
+
+  const axis = axisOf(direction);
+  const after = isAfter(direction);
+  const newLeaf: Leaf = { kind: 'leaf', id: newId };
+
+  //case - 1 add a sibling because parent already cuts along this axis
+  if (path.length > 0) {
+    const parentPath = path.slice(0, -1); // drop the last index
+    const i = path[path.length - 1];      // our position inside the parent
+    const parent = getNode(root, parentPath) as Split;
+
+    if (parent.axis === axis) {
+      return updateAt(root, parentPath, () => {
+        const half = parent.sizes[i] / 2; // fᵢ → fᵢ/2, fᵢ/2
+
+        const children = [...parent.children];
+        children.splice(after ? i + 1 : i, 0, newLeaf); // insert next to the pane
+
+        const sizes = [...parent.sizes];
+        sizes.splice(i, 1, half, half); // replace fᵢ with two halves
+
+        return { ...parent, children, sizes };
+      });
+    }
+
+
+  }
+  // case 2 wrap the pane in a new split
+  return updateAt(root, path, (target) => ({
+    kind: 'split',
+    axis,
+    children: after ? [target, newLeaf] : [newLeaf, target],
+    sizes: [0.5, 0.5],
+  }));
+}
+
+
+// normalize and close 
+// to close a pane 
+// (1) remove it from its parent 
+// (2) give its fraction to a nbr; the previous sibling, or the next one if it was first.
+// (3) run normalize to clean up the tree
+
+// rule 1 a split with one child becomes that child
+// rule 2 a child split with the same axis as its parent gets merged into the parent
+
+export function normalize(node: PaneNode): PaneNode {
+  if (node.kind === 'leaf') return node;
+
+  const children: PaneNode[] = [];
+  const sizes: number[] = [];
+
+  node.children.forEach((original, i) => {
+    const child = normalize(original); // clean up the bottom first
+
+    if (child.kind === 'split' && child.axis === node.axis) {
+      // rule 2 the grandchildren move up, each with fᵢ × gⱼ
+      child.children.forEach((grandchild, j) => {
+        children.push(grandchild);
+        sizes.push(node.sizes[i] * child.sizes[j]);
+      });
+    } else {
+      children.push(child);
+      sizes.push(node.sizes[i]);
+    }
+  });
+
+  if (children.length === 1) return children[0]; // rule 1
+
+  return { ...node, children, sizes };
+}
+
+// returns null when the last pane is closed
+export function closePane(root: PaneNode, id: string): PaneNode | null {
+  const path = findPath(root, id);
+  if (!path) return root;
+  if (path.length === 0) return null; // the root itself is the last pane
+
+  const parentPath = path.slice(0, -1);
+  const i = path[path.length - 1];
+
+  const updated = updateAt(root, parentPath, (node) => {
+    const parent = node as Split;
+    const neighbour = i > 0 ? i - 1 : 1; // previous sibling or the next one if we're first
+
+    const sizes = [...parent.sizes];
+    sizes[neighbour] += sizes[i]; // fⱼ → fⱼ + fᵢ
+    sizes.splice(i, 1);           // remove fᵢ
+
+    const children = parent.children.filter((_, j) => j !== i);
+    return { ...parent, children, sizes };
+  });
+
+  return normalize(updated);
+}
+
+
+// resizing is moving the divider
+
+const MIN_FRACTION = 0.1; // no pane gets smaller than 10% of its split
+
+// move the divider between children[index] and children[index + 1] of the split at `path` by delta
+export function resizeDivider(
+  root: PaneNode,
+  path: number[],
+  index: number,
+  delta: number,
+): PaneNode {
+  return updateAt(root, path, (node) => {
+    const split = node as Split;
+    const sizes = [...split.sizes];
+
+    // clamp δ into [−(f_index − m), f_index+1 − m]
+    const lower = -(sizes[index] - MIN_FRACTION);
+    const upper = sizes[index + 1] - MIN_FRACTION;
+    const d = Math.max(lower, Math.min(delta, upper));
+
+    sizes[index] += d;
+    sizes[index + 1] -= d;
+    return { ...split, sizes };
+  });
+}
+
+// keyboard resize move the nearest divider beside the pane in direction
+export function resizePane(
+  root: PaneNode,
+  id: string,
+  direction: Direction,
+  step = 0.05,
+): PaneNode {
+  const path = findPath(root, id);
+  if (!path) return root;
+
+  const axis = axisOf(direction);
+
+  // walk up from the pane towards the root, looking for a split along this axis
+  for (let level = path.length - 1; level >= 0; level--) {
+    const splitPath = path.slice(0, level);
+    const split = getNode(root, splitPath) as Split;
+    if (split.axis !== axis) continue;
+
+    const i = path[level]; // which child of this split we're inside
+    const index = i < split.children.length - 1 ? i : i - 1; // divider after us, or before if we're last
+    const delta = isAfter(direction) ? step : -step;
+
+    return resizeDivider(root, splitPath, index, delta);
+  }
+
+  return root;
+}
