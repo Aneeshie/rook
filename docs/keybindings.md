@@ -39,9 +39,10 @@ Dividers can also be dragged with the mouse, and typing `exit` closes a pane.
 | type | Filter, or name a new workspace |
 | ↑ ↓ or ⌃J ⌃K | Move the selection |
 | Enter | Switch to the selection, or create it |
+| ⌘⌫ | Delete the selected workspace (asks first: Enter to confirm, Esc to cancel) |
 | Esc | Close |
 
-Hovering a workspace shows rename and delete. Delete asks for a second click, because it closes every shell in that workspace.
+Hovering a workspace shows rename and delete. Delete always asks first, because it closes every shell in that workspace. The last workspace can't be deleted.
 
 ## How shortcuts reach the app
 
