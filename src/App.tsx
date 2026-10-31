@@ -1,7 +1,6 @@
 import { useState } from "react";
 import "./App.css"
 import TerminalTab from "./components/TerminalTab";
-import TerminalView from "./components/TerminalView";
 import { PaneNode } from "./layout/paneTree";
 import PaneLayout from "./components/PaneLayout";
 
