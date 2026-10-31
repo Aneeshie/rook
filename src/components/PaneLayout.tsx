@@ -14,6 +14,7 @@ type PaneLayoutProps = {
   onFocus: (paneId: string) => void;
   onPaneExit: (paneId: string) => void;
   onRootChange: (root: PaneNode) => void;
+  onPaneCwd: (paneId: string, cwd: string) => void;
 }
 
 type Drag = {
@@ -22,7 +23,7 @@ type Drag = {
   startPosition: number; // pointer x (row) or y (column) when the drag began
 };
 
-const PaneLayout = ({ root, active, focusedId, fontSize, onFocus, onPaneExit, onRootChange }: PaneLayoutProps) => {
+const PaneLayout = ({ root, active, focusedId, fontSize, onFocus, onPaneExit, onRootChange, onPaneCwd }: PaneLayoutProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 })
   const dragRef = useRef<Drag | null>(null);
@@ -86,7 +87,7 @@ const PaneLayout = ({ root, active, focusedId, fontSize, onFocus, onPaneExit, on
           key={paneId}
           className={`absolute px-3 py-2 transition-opacity duration-150 ${ // padding keeps the text off the dividers
             showFocus && paneId !== focusedId ? 'opacity-50' : ''
-          }`}
+            }`}
           style={{ left: rect.x, top: rect.y, width: rect.width, height: rect.height }}
           onMouseDown={() => onFocus(paneId)}
         >
@@ -94,6 +95,7 @@ const PaneLayout = ({ root, active, focusedId, fontSize, onFocus, onPaneExit, on
             active={active && paneId === focusedId}
             fontSize={fontSize}
             onExit={() => onPaneExit(paneId)}
+            onCwdChange={(cwd) => onPaneCwd(paneId, cwd)}
           />
         </div>
       ))}
@@ -110,17 +112,17 @@ const PaneLayout = ({ root, active, focusedId, fontSize, onFocus, onPaneExit, on
             style={
               isRow
                 ? {
-                    left: divider.rect.x - DIVIDER_GRAB,
-                    top: divider.rect.y,
-                    width: divider.rect.width + DIVIDER_GRAB * 2,
-                    height: divider.rect.height,
-                  }
+                  left: divider.rect.x - DIVIDER_GRAB,
+                  top: divider.rect.y,
+                  width: divider.rect.width + DIVIDER_GRAB * 2,
+                  height: divider.rect.height,
+                }
                 : {
-                    left: divider.rect.x,
-                    top: divider.rect.y - DIVIDER_GRAB,
-                    width: divider.rect.width,
-                    height: divider.rect.height + DIVIDER_GRAB * 2,
-                  }
+                  left: divider.rect.x,
+                  top: divider.rect.y - DIVIDER_GRAB,
+                  width: divider.rect.width,
+                  height: divider.rect.height + DIVIDER_GRAB * 2,
+                }
             }
             onPointerDown={(event) => startDrag(event, divider)}
             onPointerMove={moveDrag}
@@ -128,9 +130,8 @@ const PaneLayout = ({ root, active, focusedId, fontSize, onFocus, onPaneExit, on
             onPointerCancel={endDrag}
           >
             <div
-              className={`absolute transition-colors ${
-                dragging === key ? 'bg-[#e5b05a]' : 'bg-[#1c212b] group-hover:bg-[#3a4150]'
-              }`}
+              className={`absolute transition-colors ${dragging === key ? 'bg-[#e5b05a]' : 'bg-[#1c212b] group-hover:bg-[#3a4150]'
+                }`}
               style={
                 isRow
                   ? { left: DIVIDER_GRAB, top: 0, width: divider.rect.width, height: '100%' }

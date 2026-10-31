@@ -1,4 +1,5 @@
 use std::io::Result;
+use std::path::PathBuf;
 use std::sync::mpsc::Receiver;
 use std::{
     io::{Read, Write},
@@ -6,6 +7,17 @@ use std::{
 };
 
 use portable_pty::{Child, CommandBuilder, MasterPty, PtySize, native_pty_system};
+
+const ZSHENV: &str = include_str!("../shell/zshenv");
+const ZSHRC: &str = include_str!("../shell/zshrc");
+
+fn shell_integration_dir() -> anyhow::Result<PathBuf> {
+    let dir = std::env::temp_dir().join("nara-shell-integration");
+    std::fs::create_dir_all(&dir)?;
+    std::fs::write(dir.join(".zshenv"), ZSHENV)?;
+    std::fs::write(dir.join(".zshrc"), ZSHRC)?;
+    Ok(dir)
+}
 
 pub struct PtySession {
     master: Box<dyn MasterPty + Send>,
@@ -22,7 +34,15 @@ impl PtySession {
         //create a new pty
         let pair = pty_system.openpty(size)?;
 
-        let cmd = CommandBuilder::new("zsh");
+        let user_zdotdir = std::env::var("ZDOTDIR")
+            .or_else(|_| std::env::var("HOME"))
+            .unwrap_or_default();
+
+        let mut cmd = CommandBuilder::new("zsh");
+
+        cmd.env("NARA_USER_ZDOTDIR", user_zdotdir);
+        cmd.env("ZDOTDIR", shell_integration_dir()?);
+
         let child = pair.slave.spawn_command(cmd)?;
 
         drop(pair.slave); // make sure we don't hold the slave open ourselves
