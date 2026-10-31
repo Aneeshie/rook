@@ -27,11 +27,11 @@ const SettingsPanel = ({ settings, onChange, onClose }: SettingsPanelProps) => {
       onMouseDown={onClose}
     >
       <div
-        className="flex max-h-[82vh] w-[560px] flex-col overflow-hidden rounded-2xl border border-fg/5 bg-surface shadow-2xl shadow-black/50"
+        className="flex max-h-[86vh] w-[min(760px,92vw)] flex-col overflow-hidden rounded-2xl border border-fg/5 bg-surface shadow-2xl shadow-black/50"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <header className="flex shrink-0 items-center justify-between px-6 pt-5 pb-2">
-          <h2 className="text-ui text-fg">Settings</h2>
+        <header className="flex shrink-0 items-center justify-between border-b border-fg/5 px-10 py-6">
+          <h2 className="text-[length:calc(var(--ui-size,13px)+3px)] text-fg">Settings</h2>
           <button
             type="button"
             aria-label="Close settings"
@@ -42,9 +42,9 @@ const SettingsPanel = ({ settings, onChange, onClose }: SettingsPanelProps) => {
           </button>
         </header>
 
-        <div className="flex flex-col gap-7 overflow-y-auto px-6 pt-3 pb-6">
+        <div className="flex flex-col gap-12 overflow-y-auto px-10 pt-8 pb-10">
           <Section title="Theme">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-5">
               {THEMES.map((theme) => (
                 <ThemeCard
                   key={theme.id}
@@ -57,7 +57,7 @@ const SettingsPanel = ({ settings, onChange, onClose }: SettingsPanelProps) => {
           </Section>
 
           <Section title="Font">
-            <div className="flex flex-col gap-0.5">
+            <div className="flex flex-col gap-1">
               {FONTS.map((font) => {
                 const selected = font.id === settings.font;
                 return (
@@ -66,11 +66,11 @@ const SettingsPanel = ({ settings, onChange, onClose }: SettingsPanelProps) => {
                     type="button"
                     onClick={() => onChange({ font: font.id })}
                     style={{ fontFamily: font.family }}
-                    className={`flex h-10 cursor-pointer items-center gap-4 rounded-lg px-3 text-left transition-colors ${
+                    className={`flex h-12 cursor-pointer items-center gap-6 rounded-xl px-4 text-left transition-colors ${
                       selected ? 'bg-fg/[0.06] text-fg' : 'text-soft hover:bg-fg/[0.03]'
                     }`}
                   >
-                    <span className="w-36 shrink-0 text-ui">{font.name}</span>
+                    <span className="w-44 shrink-0 text-ui">{font.name}</span>
                     {/* the characters that tell monospace fonts apart */}
                     <span className="flex-1 truncate text-ui-sm text-faint">0O 1lI {'{}'} =&gt; !=</span>
                     {selected && <Check size={13} className="shrink-0 text-accent" />}
@@ -81,7 +81,7 @@ const SettingsPanel = ({ settings, onChange, onClose }: SettingsPanelProps) => {
           </Section>
 
           <Section title="Size">
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-2">
               <Stepper
                 label="Terminal"
                 hint="⌘+  ⌘−"
@@ -104,7 +104,7 @@ const SettingsPanel = ({ settings, onChange, onClose }: SettingsPanelProps) => {
 };
 
 const Section = ({ title, children }: { title: string; children: ReactNode }) => (
-  <section className="flex flex-col gap-3">
+  <section className="flex flex-col gap-5">
     <h3 className="text-ui-sm text-muted">{title}</h3>
     {children}
   </section>
@@ -119,11 +119,11 @@ const ThemeCard = ({ theme, selected, onSelect }: { theme: AppTheme; selected: b
     <button
       type="button"
       onClick={onSelect}
-      className={`cursor-pointer overflow-hidden rounded-xl text-left ring-1 transition-all ${
+      className={`cursor-pointer overflow-hidden rounded-2xl text-left ring-1 transition-all ${
         selected ? 'ring-2 ring-accent' : 'ring-fg/[0.06] hover:ring-fg/20'
       }`}
     >
-      <div className="flex flex-col gap-0.5 px-3.5 py-3 text-[10px] leading-4" style={{ background: t.background }}>
+      <div className="flex flex-col gap-1 px-5 py-5 text-[11px] leading-5" style={{ background: t.background }}>
         <div>
           <span style={{ color: t.green }}>❯</span> <span style={{ color: t.blue }}>git</span>{' '}
           <span style={{ color: t.foreground }}>status</span>
@@ -135,7 +135,7 @@ const ThemeCard = ({ theme, selected, onSelect }: { theme: AppTheme; selected: b
         <div>
           <span style={{ color: t.red }}>??</span> <span style={{ color: t.foreground }}>notes.md</span>
         </div>
-        <div className="mt-2 flex gap-1">
+        <div className="mt-3 flex gap-1.5">
           {swatches.map((color, index) => (
             <span key={index} className="size-2 rounded-full" style={{ background: color }} />
           ))}
@@ -143,7 +143,7 @@ const ThemeCard = ({ theme, selected, onSelect }: { theme: AppTheme; selected: b
       </div>
 
       <div
-        className="flex items-center justify-between px-3.5 py-2.5 text-ui-sm"
+        className="flex items-center justify-between px-5 py-3.5 text-ui-sm"
         style={{ background: theme.ui.surface, color: theme.ui.fg }}
       >
         {theme.name}
@@ -163,7 +163,7 @@ type StepperProps = {
 };
 
 const Stepper = ({ label, hint, value, min, max, onChange }: StepperProps) => (
-  <div className="flex h-10 items-center justify-between rounded-lg px-3">
+  <div className="flex h-14 items-center justify-between rounded-xl bg-fg/[0.02] px-4">
     <span className="flex items-baseline gap-3">
       <span className="text-ui text-soft">{label}</span>
       {hint && <span className="text-ui-sm text-faint">{hint}</span>}
