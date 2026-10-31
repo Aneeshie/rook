@@ -7,11 +7,12 @@ type PaneLayoutProps = {
   root: PaneNode;
   active: boolean;
   focusedId: string;
+  fontSize: number;
   onFocus: (paneId: string) => void;
   onPaneExit: (paneId: string) => void;
 }
 
-const PaneLayout = ({ root, active, focusedId, onFocus, onPaneExit }: PaneLayoutProps) => {
+const PaneLayout = ({ root, active, focusedId, fontSize, onFocus, onPaneExit }: PaneLayoutProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 })
 
@@ -39,12 +40,13 @@ const PaneLayout = ({ root, active, focusedId, onFocus, onPaneExit }: PaneLayout
       {[...panes].map(([paneId, rect]) => (
         <div
           key={paneId}
-          className="absolute"
+          className="absolute px-3 py-2" // keeps the text off the dividers
           style={{ left: rect.x, top: rect.y, width: rect.width, height: rect.height }}
           onMouseDown={() => onFocus(paneId)}
         >
           <TerminalView
             active={active && paneId === focusedId}
+            fontSize={fontSize}
             onExit={() => onPaneExit(paneId)}
           />
         </div>

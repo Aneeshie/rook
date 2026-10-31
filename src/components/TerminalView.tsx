@@ -4,6 +4,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { Terminal } from '@xterm/xterm';
 import type { IDisposable } from '@xterm/xterm';
 import { useEffect, useRef} from 'react'
+import { matchAction } from '../keybindings';
 
 type TerminalOutput = {
   terminal_id: string;
@@ -21,18 +22,26 @@ type TerminalExit = {
 
 type TerminalViewProps = {
   active: boolean;
+  fontSize: number;
   onExit: () => void;
 }
 
-const TerminalView = ({ active, onExit }: TerminalViewProps) => {
+const TerminalView = ({ active, fontSize, onExit }: TerminalViewProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const onExitRef = useRef(onExit);
   onExitRef.current = onExit;
+
+  // read once by the lifecycle effect so a new terminal starts at the current size
+  const fontSizeRef = useRef(fontSize);
+  fontSizeRef.current = fontSize;
 
   const terminalRef = useRef<Terminal | null>(null);
 
   // set by the lifecycle effect; refits and focuses this terminal when it becomes visible
   const activateRef = useRef<(() => void) | undefined>(undefined);
+
+  // set by the lifecycle effect; refits the grid and tells the PTY, e.g. after a font change
+  const refitRef = useRef<(() => void) | undefined>(undefined);
 
   useEffect(() => {
 
@@ -43,7 +52,6 @@ const TerminalView = ({ active, onExit }: TerminalViewProps) => {
     let inputSubscription: IDisposable | undefined;
     let pendingOutput: TerminalOutput[] = [];
     let cancelled = false;
-    let fontSize = 14;
 
     // Effect-local on purpose: a shared ref could be overwritten by a later
     // effect run (e.g. StrictMode remount) and cause the wrong session to close.
@@ -54,7 +62,7 @@ const TerminalView = ({ active, onExit }: TerminalViewProps) => {
 
     const initializeTerminal = () => {
       const terminal = new Terminal({
-              fontSize,
+              fontSize: fontSizeRef.current,
               fontFamily: 'ui-monospace, Menlo, monospace',
               cursorBlink: true,
               theme: { background: '#0b0d12', foreground: '#c9d1d9', cursor: '#c9d1d9' },
@@ -70,29 +78,8 @@ const TerminalView = ({ active, onExit }: TerminalViewProps) => {
 
     const {terminal, fitAddon} = initializeTerminal();
 
-    const handleFontSizeChange = () => {
-      terminal.attachCustomKeyEventHandler((event) => {
-        if (!event.metaKey || event.type !== "keydown") {
-          return true;
-        }
-
-        if (event.key === "+" || event.key === "=") {
-          fontSize = Math.min(fontSize + 1, 32);
-        } else if (event.key === "-" || event.key === "_") {
-          fontSize = Math.max(fontSize - 1, 10);
-        } else if (event.key === "0") {
-          fontSize = 14;
-        } else {
-          return true;
-        }
-
-        terminal.options.fontSize = fontSize;
-        fitAddon.fit();
-        resizePty();
-
-        return false;
-      });
-    };
+    // app shortcuts belong to App, so xterm must not send them to the shell
+    terminal.attachCustomKeyEventHandler((event) => !matchAction(event));
 
     const resizePty = () => {
       const id = sessionId;
@@ -115,7 +102,12 @@ const TerminalView = ({ active, onExit }: TerminalViewProps) => {
       })
     };
 
-    handleFontSizeChange();
+    refitRef.current = () => {
+      if (cancelled) return;
+
+      fitAddon.fit();
+      resizePty();
+    };
 
     activateRef.current = () => {
       if (cancelled) return;
@@ -142,6 +134,7 @@ const TerminalView = ({ active, onExit }: TerminalViewProps) => {
       cleanedUp = true;
       cancelled = true;
       activateRef.current = undefined;
+      refitRef.current = undefined;
 
       unlisten?.();
       unlisten = undefined;
@@ -264,6 +257,15 @@ const TerminalView = ({ active, onExit }: TerminalViewProps) => {
   useEffect(() => {
     if (active) activateRef.current?.();
   }, [active])
+
+  // the font size is app-wide; the box doesn't change size, so the ResizeObserver won't refit for us
+  useEffect(() => {
+    const terminal = terminalRef.current;
+    if (!terminal || terminal.options.fontSize === fontSize) return;
+
+    terminal.options.fontSize = fontSize;
+    refitRef.current?.();
+  }, [fontSize])
 
   return (
     <div ref={containerRef} className='h-full w-full min-h-0 min-w-0 overflow-hidden' />
