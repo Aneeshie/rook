@@ -18,6 +18,7 @@ export type Divider = {
   index: number; // sits between children[index] and children[index + 1]
   axis: Axis; // the split's axis so the UI knows to use a col-resize or row-resize cursor
   rect: Rect;
+  available: number; // the split's `available` pixels, so dragging Δ px means δ = Δ / available
 }
 
 export const DIVIDER_SIZE = 4; // d
@@ -87,6 +88,7 @@ export function computeLayout(root: PaneNode, bounds: Rect): Layout {
           rect: isRow
             ? { x: dividerStart, y: rect.y, width: DIVIDER_SIZE, height: rect.height }
             : { x: rect.x, y: dividerStart, width: rect.width, height: DIVIDER_SIZE },
+          available,
         })
       }
 
@@ -320,4 +322,41 @@ export function resizePane(
   }
 
   return root;
+}
+// the closest pane in `direction` from `fromId` that shares some length on the other axis
+//   gap     = how far past our edge the candidate starts (must be ≥ 0)
+//   overlap = how much the two share on the other axis (must be > 0)
+// smallest gap wins, ties go to the biggest overlap
+export function findNeighbour(
+  panes: Map<string, Rect>,
+  fromId: string,
+  direction: Direction,
+): string | null {
+  const from = panes.get(fromId);
+  if (!from) return null;
+
+  const horizontal = direction === 'left' || direction === 'right';
+  let best: { id: string; gap: number; overlap: number } | null = null;
+
+  for (const [id, rect] of panes) {
+    if (id === fromId) continue;
+
+    const gap =
+      direction === 'right' ? rect.x - (from.x + from.width)
+      : direction === 'left' ? from.x - (rect.x + rect.width)
+      : direction === 'down' ? rect.y - (from.y + from.height)
+      : from.y - (rect.y + rect.height);
+
+    const overlap = horizontal
+      ? Math.min(from.y + from.height, rect.y + rect.height) - Math.max(from.y, rect.y)
+      : Math.min(from.x + from.width, rect.x + rect.width) - Math.max(from.x, rect.x);
+
+    if (gap < 0 || overlap <= 0) continue;
+
+    if (!best || gap < best.gap || (gap === best.gap && overlap > best.overlap)) {
+      best = { id, gap, overlap };
+    }
+  }
+
+  return best?.id ?? null;
 }

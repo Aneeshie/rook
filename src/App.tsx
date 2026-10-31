@@ -1,7 +1,16 @@
 import { useEffect, useState } from "react";
 import "./App.css"
 import TerminalTab from "./components/TerminalTab";
-import { closePane, Direction, leaves, PaneNode, resizePane, splitPane } from "./layout/paneTree";
+import {
+  closePane,
+  computeLayout,
+  Direction,
+  findNeighbour,
+  leaves,
+  PaneNode,
+  resizePane,
+  splitPane,
+} from "./layout/paneTree";
 import PaneLayout from "./components/PaneLayout";
 import { matchAction } from "./keybindings";
 
@@ -63,6 +72,20 @@ function App() {
       ...tab,
       root: resizePane(tab.root, tab.focusedId, direction),
     }));
+  };
+
+  const moveFocus = (tabId: string, direction: Direction) => {
+    updateTab(tabId, (tab) => {
+      // which pane sits next to which only depends on the fractions, not the real pixel size,
+      // so any big made-up rectangle works and App doesn't need to measure anything
+      const { panes } = computeLayout(tab.root, { x: 0, y: 0, width: 10000, height: 10000 });
+      const neighbour = findNeighbour(panes, tab.focusedId, direction);
+      return neighbour ? { ...tab, focusedId: neighbour } : tab;
+    });
+  };
+
+  const setRoot = (tabId: string, root: PaneNode) => {
+    updateTab(tabId, (tab) => ({ ...tab, root }));
   };
 
   const closeTab = (id: string) => {
@@ -142,6 +165,7 @@ function App() {
       if (!tab) return;
 
       if (action.type === 'split') splitFocused(tab.id, action.direction);
+      else if (action.type === 'focus') moveFocus(tab.id, action.direction);
       else if (action.type === 'resize') resizeFocused(tab.id, action.direction);
       else closePaneInTab(tab.id, tab.focusedId);
     };
@@ -197,6 +221,7 @@ function App() {
               fontSize={fontSize}
               onFocus={(paneId) => focusPane(tab.id, paneId)}
               onPaneExit={(paneId) => closePaneInTab(tab.id, paneId)}
+              onRootChange={(root) => setRoot(tab.id, root)}
             />
           </div>
         ))}

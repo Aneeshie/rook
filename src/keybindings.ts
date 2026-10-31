@@ -3,6 +3,7 @@ import { Direction } from './layout/paneTree';
 export type Action =
   | { type: 'split'; direction: Direction }
   | { type: 'resize'; direction: Direction }
+  | { type: 'focus'; direction: Direction }
   | { type: 'close' }
   | { type: 'newTab' }
   | { type: 'goToTab'; number: number } // 1–9, where 9 means the last tab
@@ -42,6 +43,7 @@ export function matchAction(event: KeyboardEvent): Action | null {
 
   if (event.altKey && !event.ctrlKey) return { type: 'split', direction }; // ⌘⌥ + hjkl
   if (event.ctrlKey && !event.altKey) return { type: 'resize', direction }; // ⌘⌃ + hjkl
+  if (event.shiftKey) return { type: 'focus', direction }; // ⌘⇧ + hjkl
 
   return null;
 }
