@@ -2,13 +2,44 @@ import { useState } from "react";
 import "./App.css"
 import TerminalTab from "./components/TerminalTab";
 import TerminalView from "./components/TerminalView";
+import { PaneNode } from "./layout/paneTree";
+import PaneLayout from "./components/PaneLayout";
 
 type Tab = {
   id: string;
   title: string;
+  root: PaneNode;
+  focusedId: string;
 };
 
-const createTab = (): Tab => ({ id: crypto.randomUUID(), title: "zsh" });
+const createTab = (): Tab => {
+  //TEMP
+  const a = crypto.randomUUID();
+  const b = crypto.randomUUID();
+  const c = crypto.randomUUID();
+  return {
+    id: crypto.randomUUID(),
+    title: 'zsh',
+    focusedId: a,
+    root: {
+      kind: 'split',
+      axis: 'row',
+      sizes: [0.5, 0.5],
+      children: [
+        { kind: 'leaf', id: a },
+        {
+          kind: 'split',
+          axis: 'column',
+          sizes: [0.5, 0.5],
+          children: [
+            { kind: 'leaf', id: b },
+            { kind: 'leaf', id: c },
+          ],
+        },
+      ],
+    },
+  };
+}
 
 function App() {
   const [tabs, setTabs] = useState<Tab[]>(() => [createTab()]);
@@ -19,6 +50,12 @@ function App() {
     setTabs((current) => [...current, tab]);
     setActiveId(tab.id);
   };
+
+  const focusPane = (tabId: string, paneId: string) => {
+    setTabs((curr) =>
+      curr.map((tab) => (tab.id === tabId ? { ...tab, focusedId: paneId } : tab)
+      ))
+  }
 
   const closeTab = (id: string) => {
     const position = tabs.findIndex((tab) => tab.id === id);
@@ -79,11 +116,16 @@ function App() {
         {tabs.map((tab) => (
           <div
             key={tab.id}
-            className={`absolute inset-0 px-5 py-3 ${
-              tab.id === activeId ? '' : 'pointer-events-none invisible'
-            }`}
+            className={`absolute inset-0 px-5 py-3 ${tab.id === activeId ? '' : 'pointer-events-none invisible'
+              }`}
           >
-            <TerminalView active={tab.id === activeId} onExit={() => closeTab(tab.id)} />
+            <PaneLayout
+              root={tab.root}
+              active={tab.id === activeId}
+              focusedId={tab.focusedId}
+              onFocus={(paneId) => focusPane(tab.id, paneId)}
+              onPaneExit={() => closeTab(tab.id)} // temporary: step 3 closes just the pane
+            />
           </div>
         ))}
       </div>
@@ -91,8 +133,7 @@ function App() {
       <footer className="flex h-8 shrink-0 items-center gap-4 border-t border-[#1c212b] text-xs">
         <span className="flex h-full items-center bg-[#e5b05a] px-3 font-bold text-black">TERM</span>
         <span className="flex items-center gap-2 text-neutral-300">
-          <span className="size-2 rounded-full bg-[#e5b05a]" />
-          work ▸ api
+          <span className="size-2 rounded-full bg-[#e5b05a]" />work ▸ api
         </span>
         <span className="ml-auto pr-4 text-neutral-500">
           {tabs.length} {tabs.length === 1 ? 'tab' : 'tabs'}
