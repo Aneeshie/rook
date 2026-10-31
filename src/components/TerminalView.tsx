@@ -37,6 +37,7 @@ type TerminalViewProps = {
   onCommandStatus: (status: CommandStatus) => void;
   onCommandChange: (command: string) => void;
   onSizeChange: (cols: number, rows: number) => void;
+  refocus: number; // bumped by App to give the active terminal its keyboard focus back
 }
 
 const TerminalView = ({
@@ -48,6 +49,7 @@ const TerminalView = ({
   onCommandStatus,
   onCommandChange,
   onSizeChange,
+  refocus,
 }: TerminalViewProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const onExitRef = useRef(onExit);
@@ -389,7 +391,7 @@ const TerminalView = ({
 
   useEffect(() => {
     if (active) activateRef.current?.();
-  }, [active])
+  }, [active, refocus])
 
   // the font size is app-wide; the box doesn't change size, so the ResizeObserver won't refit for us
   useEffect(() => {

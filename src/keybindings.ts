@@ -8,10 +8,14 @@ export type Action =
   | { type: 'newTab' }
   | { type: 'goToTab'; number: number } // 1–9, where 9 means the last tab
   | { type: 'fontSize'; change: 'increase' | 'decrease' | 'reset' }
-  | { type: 'shortcuts' };
+  | { type: 'shortcuts' }
+  | { type: 'workspaces' }
+  | { type: 'goToWorkspace'; number: number }; // 1–9
 
 // what the ⌘/ sheet lists; keep in sync with matchAction below
 export const SHORTCUTS: { keys: string; label: string }[] = [
+  { keys: '⌘E', label: 'Workspaces' },
+  { keys: '⌘⌥1–9', label: 'Go to workspace' },
   { keys: '⌘T', label: 'New tab' },
   { keys: '⌘1–9', label: 'Go to tab' },
   { keys: '⌘⌥ h j k l', label: 'Split pane' },
@@ -39,6 +43,12 @@ export function matchAction(event: KeyboardEvent): Action | null {
   if (onlyMeta && event.code === 'KeyW') return { type: 'close' };
   if (onlyMeta && event.code === 'KeyT') return { type: 'newTab' };
   if (onlyMeta && event.code === 'Slash') return { type: 'shortcuts' };
+  if (onlyMeta && event.code === 'KeyE') return { type: 'workspaces' };
+
+  // ⌘⌥1 … ⌘⌥9
+  if (event.altKey && !event.ctrlKey && !event.shiftKey && /^Digit[1-9]$/.test(event.code)) {
+    return { type: 'goToWorkspace', number: Number(event.code.slice(5)) };
+  }
 
   // ⌘1 … ⌘9
   if (onlyMeta && /^Digit[1-9]$/.test(event.code)) {
