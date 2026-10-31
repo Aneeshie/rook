@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
-import { Check, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 
 export type WorkspaceSummary = {
   id: string;
@@ -68,8 +68,45 @@ const WorkspaceSwitcher = ({
     inputRef.current?.focus();
   };
 
+  const confirming = workspaces.find((w) => w.id === confirmDeleteId);
+
+  // deleting closes every shell in the workspace, so it always asks first; the last one can't go
+  const askToDelete = (workspace: WorkspaceSummary) => {
+    if (workspaces.length > 1) setConfirmDeleteId(workspace.id);
+  };
+
+  // focus goes back to the search box after the row re-renders, or the clicked button keeps it
+  const refocusSearch = () => requestAnimationFrame(() => inputRef.current?.focus());
+
+  const confirmDelete = () => {
+    if (confirming) onDelete(confirming.id);
+    setConfirmDeleteId(null);
+    refocusSearch();
+  };
+
+  const cancelDelete = () => {
+    setConfirmDeleteId(null);
+    refocusSearch();
+  };
+
   const onKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Escape') {
+    // while a delete is being confirmed, Enter confirms and Esc only cancels it
+    if (confirming) {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        confirmDelete();
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        cancelDelete();
+      }
+      return;
+    }
+
+    if (event.metaKey && event.key === 'Backspace') {
+      event.preventDefault();
+      const item = items[selected];
+      if (item?.kind === 'workspace') askToDelete(item.workspace);
+    } else if (event.key === 'Escape') {
       event.preventDefault();
       onClose();
     } else if (event.key === 'ArrowDown' || (event.ctrlKey && event.key === 'j')) {
@@ -90,7 +127,7 @@ const WorkspaceSwitcher = ({
       onMouseDown={onClose}
     >
       <div
-        className="w-96 overflow-hidden rounded-xl border border-fg/5 bg-surface shadow-2xl shadow-black/50"
+        className="w-[min(30rem,92vw)] overflow-hidden rounded-xl border border-fg/5 bg-surface shadow-2xl shadow-black/50"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <input
@@ -124,6 +161,34 @@ const WorkspaceSwitcher = ({
 
             const { workspace } = item;
             const isActive = workspace.id === activeId;
+
+            if (confirming?.id === workspace.id) {
+              return (
+                <div
+                  key={workspace.id}
+                  className="flex min-h-9 items-center gap-3 rounded-md bg-danger/10 py-1.5 pr-1.5 pl-3 text-ui"
+                >
+                  <span className="min-w-0 flex-1 break-words text-soft">
+                    Delete <span className="text-fg">{workspace.name}</span>? Its shells will close.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={cancelDelete}
+                    className="cursor-pointer rounded-md px-2 py-1 text-ui-sm text-soft transition-colors hover:bg-fg/5 hover:text-fg"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmDelete}
+                    className="cursor-pointer rounded-md bg-danger px-2 py-1 text-ui-sm text-bg transition-opacity hover:opacity-90"
+                  >
+                    Delete
+                  </button>
+                </div>
+              );
+            }
+
             const position = workspaces.indexOf(workspace) + 1;
 
             return (
@@ -171,21 +236,16 @@ const WorkspaceSwitcher = ({
                     <Pencil size={12} />
                   </button>
                   {workspaces.length > 1 && (
-                    // two clicks to delete, since it closes every shell in the workspace
                     <button
                       type="button"
                       aria-label={`Delete ${workspace.name}`}
                       onClick={(event) => {
                         event.stopPropagation();
-                        if (confirmDeleteId === workspace.id) onDelete(workspace.id);
-                        else setConfirmDeleteId(workspace.id);
+                        askToDelete(workspace);
                       }}
-                      onMouseLeave={() => setConfirmDeleteId(null)}
-                      className={`cursor-pointer rounded p-1 hover:bg-fg/5 ${
-                        confirmDeleteId === workspace.id ? 'text-danger' : 'text-muted hover:text-fg'
-                      }`}
+                      className="cursor-pointer rounded p-1 text-muted hover:bg-fg/5 hover:text-danger"
                     >
-                      {confirmDeleteId === workspace.id ? <Check size={12} /> : <Trash2 size={12} />}
+                      <Trash2 size={12} />
                     </button>
                   )}
                 </span>

@@ -13,19 +13,38 @@ export type Action =
   | { type: 'settings' }
   | { type: 'goToWorkspace'; number: number }; // 1–9
 
-// what the ⌘/ sheet lists; keep in sync with matchAction below
-export const SHORTCUTS: { keys: string; label: string }[] = [
-  { keys: '⌘E', label: 'Workspaces' },
-  { keys: '⌘,', label: 'Settings' },
-  { keys: '⌘⌥1–9', label: 'Go to workspace' },
-  { keys: '⌘T', label: 'New tab' },
-  { keys: '⌘1–9', label: 'Go to tab' },
-  { keys: '⌘⌥ h j k l', label: 'Split pane' },
-  { keys: '⌘⇧ h j k l', label: 'Move focus' },
-  { keys: '⌘⌃ h j k l', label: 'Resize pane' },
-  { keys: '⌘W', label: 'Close pane' },
-  { keys: '⌘+ / ⌘−', label: 'Font size' },
-  { keys: '⌘0', label: 'Reset font size' },
+// what the ⌘/ sheet lists, in groups; each key is one keycap. Keep in sync with matchAction below
+export type Shortcut = { keys: string[]; label: string };
+
+export const SHORTCUT_GROUPS: { title: string; shortcuts: Shortcut[] }[] = [
+  {
+    title: 'Panes',
+    shortcuts: [
+      { keys: ['⌘', '⌥', 'h j k l'], label: 'Split' },
+      { keys: ['⌘', '⇧', 'h j k l'], label: 'Move focus' },
+      { keys: ['⌘', '⌃', 'h j k l'], label: 'Resize' },
+      { keys: ['⌘', 'W'], label: 'Close pane' },
+    ],
+  },
+  {
+    title: 'Tabs & workspaces',
+    shortcuts: [
+      { keys: ['⌘', 'T'], label: 'New tab' },
+      { keys: ['⌘', '1–9'], label: 'Go to tab' },
+      { keys: ['⌘', 'E'], label: 'Workspaces' },
+      { keys: ['⌘', '⌥', '1–9'], label: 'Go to workspace' },
+    ],
+  },
+  {
+    title: 'App',
+    shortcuts: [
+      { keys: ['⌘', ','], label: 'Settings' },
+      { keys: ['⌘', '+'], label: 'Bigger text' },
+      { keys: ['⌘', '−'], label: 'Smaller text' },
+      { keys: ['⌘', '0'], label: 'Reset text size' },
+      { keys: ['⌘', '/'], label: 'This sheet' },
+    ],
+  },
 ];
 
 // vim directions; event.code is the physical key, so ⌥ turning h into ˙ doesn't matter
