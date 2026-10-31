@@ -47,6 +47,20 @@ src-tauri/
 docs/                     this documentation
 ```
 
+## App icon
+
+The icon's source is `src-tauri/app-icon.svg`. After editing it, render it and regenerate every size:
+
+```bash
+rsvg-convert -w 1024 -h 1024 src-tauri/app-icon.svg -o src-tauri/app-icon.png
+```
+
+```bash
+bun run tauri icon src-tauri/app-icon.png
+```
+
+`tauri icon` also writes Android and iOS icons, which Rook doesn't use; delete `src-tauri/icons/android`, `src-tauri/icons/ios` and `src-tauri/icons/64x64.png` afterwards.
+
 ## Conventions
 
 - TypeScript: two-space indentation, single quotes, PascalCase components, camelCase everything else.
