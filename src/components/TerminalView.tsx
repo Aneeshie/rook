@@ -5,6 +5,7 @@ import { Terminal } from '@xterm/xterm';
 import type { IDisposable, IMarker } from '@xterm/xterm';
 import { useEffect, useRef } from 'react'
 import { matchAction } from '../keybindings';
+import { FONT_FAMILY, TERMINAL_THEME } from '../theme';
 
 const FAILED_COLOR = '#f47067';
 const FAILED_TINT = 'rgba(244, 112, 103, 0.07)';
@@ -34,9 +35,20 @@ type TerminalViewProps = {
   onCwdChange: (cwd: string) => void;
   onBranchChange: (branch: string) => void;
   onCommandStatus: (status: CommandStatus) => void;
+  onCommandChange: (command: string) => void;
+  onSizeChange: (cols: number, rows: number) => void;
 }
 
-const TerminalView = ({ active, fontSize, onExit, onCwdChange, onBranchChange, onCommandStatus }: TerminalViewProps) => {
+const TerminalView = ({
+  active,
+  fontSize,
+  onExit,
+  onCwdChange,
+  onBranchChange,
+  onCommandStatus,
+  onCommandChange,
+  onSizeChange,
+}: TerminalViewProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const onExitRef = useRef(onExit);
   onExitRef.current = onExit;
@@ -53,6 +65,12 @@ const TerminalView = ({ active, fontSize, onExit, onCwdChange, onBranchChange, o
 
   const onCommandStatusRef = useRef(onCommandStatus);
   onCommandStatusRef.current = onCommandStatus
+
+  const onCommandChangeRef = useRef(onCommandChange);
+  onCommandChangeRef.current = onCommandChange;
+
+  const onSizeChangeRef = useRef(onSizeChange);
+  onSizeChangeRef.current = onSizeChange;
 
   const terminalRef = useRef<Terminal | null>(null);
 
@@ -83,9 +101,9 @@ const TerminalView = ({ active, fontSize, onExit, onCwdChange, onBranchChange, o
     const initializeTerminal = () => {
       const terminal = new Terminal({
         fontSize: fontSizeRef.current,
-        fontFamily: 'ui-monospace, Menlo, monospace',
+        fontFamily: FONT_FAMILY,
         cursorBlink: true,
-        theme: { background: '#0b0d12', foreground: '#c9d1d9', cursor: '#c9d1d9' },
+        theme: TERMINAL_THEME,
         // registerDecoration is still "proposed" API and throws without this
         allowProposedApi: true,
       });
@@ -103,6 +121,9 @@ const TerminalView = ({ active, fontSize, onExit, onCwdChange, onBranchChange, o
     // app shortcuts belong to App, so xterm must not send them to the shell
     terminal.attachCustomKeyEventHandler((event) => !matchAction(event));
 
+    // cols × rows for the footer; fires whenever a fit changes the grid
+    terminal.onResize(({ cols, rows }) => onSizeChangeRef.current(cols, rows));
+
     terminal.parser.registerOscHandler(7, (data) => {
       try {
         const path = decodeURIComponent(new URL(data).pathname);
@@ -116,6 +137,8 @@ const TerminalView = ({ active, fontSize, onExit, onCwdChange, onBranchChange, o
     terminal.parser.registerOscHandler(7777, (data) => {
       if (data.startsWith('branch=')) {
         onBranchChangeRef.current(data.slice('branch='.length))
+      } else if (data.startsWith('command=')) {
+        onCommandChangeRef.current(data.slice('command='.length));
       }
 
       return true
@@ -155,7 +178,7 @@ const TerminalView = ({ active, fontSize, onExit, onCwdChange, onBranchChange, o
       badge?.onRender((element) => {
         element.textContent = label;
         element.style.right = '0'; // anchor: 'right' alone doesn't place it without an x offset
-        element.style.fontFamily = 'ui-monospace, Menlo, monospace';
+        element.style.fontFamily = FONT_FAMILY;
         element.style.fontSize = `${Math.max((terminal.options.fontSize ?? 14) - 2, 10)}px`;
         element.style.color = FAILED_COLOR;
         element.style.background = FAILED_BADGE;
@@ -311,6 +334,7 @@ const TerminalView = ({ active, fontSize, onExit, onCwdChange, onBranchChange, o
 
         // size the terminal before asking the backend for a PTY
         fitAddon.fit();
+        onSizeChangeRef.current(terminal.cols, terminal.rows); // onResize doesn't fire if the fit changed nothing
         const rows = terminal.rows;
         const cols = terminal.cols;
 

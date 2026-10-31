@@ -25,12 +25,15 @@ _nara_command_running=0
 _nara_preexec() {
   _nara_command_running=1
   printf '\e]133;C\a'
+  # the command being run, first line only, for the pane header (OSC 7777)
+  printf '\e]7777;command=%s\a' "${1%%$'\n'*}"
 }
 
 _nara_precmd() {
   local exit_code=$?   # must be the very first line, anything before it would overwrite $?
   if (( _nara_command_running )); then
     printf '\e]133;D;%s\a' "$exit_code"
+    printf '\e]7777;command=\a' # back at the prompt, nothing is running
     _nara_command_running=0
   fi
   printf '\e]133;A\a'
