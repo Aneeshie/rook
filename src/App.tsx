@@ -3,7 +3,11 @@ import "./App.css"
 import TerminalTab from "./components/TerminalTab";
 import { closePane, Direction, leaves, PaneNode, resizePane, splitPane } from "./layout/paneTree";
 import PaneLayout from "./components/PaneLayout";
-import { matchPaneAction } from "./keybindings";
+import { matchAction } from "./keybindings";
+
+const DEFAULT_FONT_SIZE = 14;
+const MIN_FONT_SIZE = 10;
+const MAX_FONT_SIZE = 32;
 
 type Tab = {
   id: string;
@@ -25,6 +29,8 @@ const createTab = (): Tab => {
 function App() {
   const [tabs, setTabs] = useState<Tab[]>(() => [createTab()]);
   const [activeId, setActiveId] = useState<string>(() => tabs[0].id);
+  // shared by every terminal in every tab, so new tabs and panes start at the same size
+  const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE);
 
   const addTab = () => {
     const tab = createTab();
@@ -106,10 +112,31 @@ function App() {
   // re-registered whenever tabs or activeId change, so the handler never sees stale state
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      const action = matchPaneAction(event);
+      const action = matchAction(event);
       if (!action) return;
 
       event.preventDefault();
+
+      if (action.type === 'newTab') {
+        addTab();
+        return;
+      }
+
+      if (action.type === 'goToTab') {
+        // ⌘9 always means the last tab, like browsers
+        const target = action.number === 9 ? tabs[tabs.length - 1] : tabs[action.number - 1];
+        if (target) setActiveId(target.id);
+        return;
+      }
+
+      if (action.type === 'fontSize') {
+        setFontSize((size) => {
+          if (action.change === 'increase') return Math.min(size + 1, MAX_FONT_SIZE);
+          if (action.change === 'decrease') return Math.max(size - 1, MIN_FONT_SIZE);
+          return DEFAULT_FONT_SIZE;
+        });
+        return;
+      }
 
       const tab = tabs.find((t) => t.id === activeId);
       if (!tab) return;
@@ -167,6 +194,7 @@ function App() {
               root={tab.root}
               active={tab.id === activeId}
               focusedId={tab.focusedId}
+              fontSize={fontSize}
               onFocus={(paneId) => focusPane(tab.id, paneId)}
               onPaneExit={(paneId) => closePaneInTab(tab.id, paneId)}
             />
