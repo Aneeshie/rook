@@ -13,7 +13,8 @@
 |---|---|
 | `bun install` | Install JavaScript dependencies |
 | `bun run tauri dev` | Run the app with hot reload |
-| `bun run tauri build` | Build a release bundle |
+| `bun run tauri build` | Build every release bundle |
+| `bun run build:dmg` | Build a macOS disk image into `src-tauri/target/release/bundle/dmg/` |
 | `bun run build` | Type-check and build the frontend only |
 | `bun run dev` | Frontend only, in a browser (no shells: Tauri commands aren't available there) |
 | `cargo check --manifest-path src-tauri/Cargo.toml` | Check the Rust backend |
@@ -45,6 +46,20 @@ src-tauri/
   capabilities/           what the frontend is allowed to call
 docs/                     this documentation
 ```
+
+## App icon
+
+The icon's source is `src-tauri/app-icon.svg`. After editing it, render it and regenerate every size:
+
+```bash
+rsvg-convert -w 1024 -h 1024 src-tauri/app-icon.svg -o src-tauri/app-icon.png
+```
+
+```bash
+bun run tauri icon src-tauri/app-icon.png
+```
+
+`tauri icon` also writes Android and iOS icons, which Rook doesn't use; delete `src-tauri/icons/android`, `src-tauri/icons/ios` and `src-tauri/icons/64x64.png` afterwards.
 
 ## Conventions
 
