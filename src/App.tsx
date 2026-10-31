@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { GitBranch, Plus } from "lucide-react";
+import { ChevronDown, GitBranch, Plus } from "lucide-react";
 import "./App.css"
 import TerminalTab from "./components/TerminalTab";
 import {
@@ -15,6 +15,7 @@ import {
 import PaneLayout, { PaneInfo } from "./components/PaneLayout";
 import { matchAction } from "./keybindings";
 import ShortcutSheet from "./components/ShortcutSheet";
+import WorkspaceSwitcher from "./components/WorkspaceSwitcher";
 
 const DEFAULT_FONT_SIZE = 14;
 const MIN_FONT_SIZE = 10;
@@ -37,6 +38,22 @@ const createTab = (): Tab => {
   };
 }
 
+type Workspace = {
+  id: string;
+  name: string;
+  color: string; // the dot that tells workspaces apart at a glance
+  tabs: Tab[];
+  activeTabId: string; // each workspace remembers its own active tab
+}
+
+// handed out in order, so neighbouring workspaces never share a color
+const WORKSPACE_COLORS = ['#e5b05a', '#6ea8fe', '#8ddb8c', '#c297ff', '#56d4dd', '#f47067'];
+
+const createWorkspace = (name: string, color: string): Workspace => {
+  const tab = createTab();
+  return { id: crypto.randomUUID(), name, color, tabs: [tab], activeTabId: tab.id };
+}
+
 const shortenHome = (path: string) => path.replace(/^\/(Users|home)\/[^/]+/, '~');
 
 // just the folder name for the tab: /Users/aneesh/work/api → "api", home → "~"
@@ -55,29 +72,77 @@ const tabTitle = (tab: Tab) => {
 const isRunning = (tab: Tab) => Object.values(tab.panes).some((pane) => pane.status?.state === 'running');
 
 function App() {
-  const [tabs, setTabs] = useState<Tab[]>(() => [createTab()]);
-  const [activeId, setActiveId] = useState<string>(() => tabs[0].id);
+  const [workspaces, setWorkspaces] = useState<Workspace[]>(() => [createWorkspace('default', WORKSPACE_COLORS[0])]);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState(() => workspaces[0].id);
   // shared by every terminal in every tab, so new tabs and panes start at the same size
   const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE);
-  const [showShortcuts, setShowShortcuts] = useState(false);
-  const closeShortcuts = useCallback(() => setShowShortcuts(false), []);
+  const [overlay, setOverlay] = useState<'shortcuts' | 'workspaces' | null>(null);
+  // bumped when an overlay closes, so the active terminal gets the keyboard back
+  const [refocus, setRefocus] = useState(0);
+  const closeOverlay = useCallback(() => {
+    setOverlay(null);
+    setRefocus((n) => n + 1);
+  }, []);
 
+  const workspace = workspaces.find((w) => w.id === activeWorkspaceId) ?? workspaces[0];
+  const tabs = workspace.tabs;
+  const activeId = workspace.activeTabId;
+
+  // change the workspace on screen
+  const updateWorkspace = (change: (w: Workspace) => Workspace) => {
+    setWorkspaces((all) => all.map((w) => (w.id === activeWorkspaceId ? change(w) : w)));
+  };
+
+  const setActiveId = (tabId: string) => {
+    updateWorkspace((w) => ({ ...w, activeTabId: tabId }));
+  };
+
+  const updateTab = (tabId: string, change: (tab: Tab) => Tab) => {
+    setWorkspaces((all) =>
+      all.map((w) =>
+        w.tabs.some((t) => t.id === tabId)
+          ? { ...w, tabs: w.tabs.map((t) => (t.id === tabId ? change(t) : t)) }
+          : w,
+      ),
+    );
+  };
   const addTab = () => {
     const tab = createTab();
-    setTabs((current) => [...current, tab]);
-    setActiveId(tab.id);
+    updateWorkspace((w) => ({ ...w, tabs: [...w.tabs, tab], activeTabId: tab.id }));
   };
 
   const focusPane = (tabId: string, paneId: string) => {
-    setTabs((curr) =>
-      curr.map((tab) => (tab.id === tabId ? { ...tab, focusedId: paneId } : tab)
-      ))
-  }
-
-  // copy-then-change one tab, same pattern as focusPane
-  const updateTab = (tabId: string, change: (tab: Tab) => Tab) => {
-    setTabs((current) => current.map((tab) => (tab.id === tabId ? change(tab) : tab)));
+    updateTab(tabId, (tab) => ({ ...tab, focusedId: paneId }));
   };
+
+  const switchWorkspace = (id: string) => {
+    setActiveWorkspaceId(id);
+    closeOverlay();
+  };
+
+  const addWorkspace = (name: string) => {
+    const created = createWorkspace(name, WORKSPACE_COLORS[workspaces.length % WORKSPACE_COLORS.length]);
+    setWorkspaces((all) => [...all, created]);
+    switchWorkspace(created.id);
+  };
+
+  const renameWorkspace = (id: string, name: string) => {
+    setWorkspaces((all) => all.map((w) => (w.id === id ? { ...w, name } : w)));
+  };
+
+  // closes every shell in it: its terminals unmount, and unmounting ends their sessions
+  const deleteWorkspace = (id: string) => {
+    if (workspaces.length === 1) return; // always keep one
+
+    const position = workspaces.findIndex((w) => w.id === id);
+    const remaining = workspaces.filter((w) => w.id !== id);
+    setWorkspaces(remaining);
+
+    if (id === activeWorkspaceId) {
+      setActiveWorkspaceId(remaining[Math.min(position, remaining.length - 1)].id);
+    }
+  };
+
 
   const splitFocused = (tabId: string, direction: Direction) => {
     const newId = crypto.randomUUID();
@@ -118,29 +183,30 @@ function App() {
   };
 
   const closeTab = (id: string) => {
-    const position = tabs.findIndex((tab) => tab.id === id);
-    if (position === -1) return;
+    setWorkspaces((all) =>
+      all.map((w) => {
+        const position = w.tabs.findIndex((tab) => tab.id === id);
+        if (position === -1) return w; // not in this workspace
 
-    const remaining = tabs.filter((tab) => tab.id !== id);
+        const remaining = w.tabs.filter((tab) => tab.id !== id);
 
-    // always keep at least one tab
-    if (remaining.length === 0) {
-      const fresh = createTab();
-      setTabs([fresh]);
-      setActiveId(fresh.id);
-      return;
-    }
+        // always keep at least one tab
+        if (remaining.length === 0) {
+          const fresh = createTab();
+          return { ...w, tabs: [fresh], activeTabId: fresh.id };
+        }
 
-    setTabs(remaining);
+        // prefer the tab that slides into this slot, else the previous one
+        const activeTabId =
+          w.activeTabId === id ? remaining[Math.min(position, remaining.length - 1)].id : w.activeTabId;
 
-    if (id === activeId) {
-      // prefer the tab that slides into this slot, else the previous one
-      setActiveId(remaining[Math.min(position, remaining.length - 1)].id);
-    }
+        return { ...w, tabs: remaining, activeTabId };
+      }),
+    );
   };
 
   const closePaneInTab = (tabId: string, paneId: string) => {
-    const tab = tabs.find((t) => t.id === tabId);
+    const tab = workspaces.flatMap((w) => w.tabs).find((t) => t.id === tabId);
     if (!tab) return;
 
     const root = closePane(tab.root, paneId);
@@ -173,8 +239,15 @@ function App() {
 
       event.preventDefault();
 
-      if (action.type === 'shortcuts') {
-        setShowShortcuts((open) => !open);
+      if (action.type === 'shortcuts' || action.type === 'workspaces') {
+        if (overlay === action.type) closeOverlay();
+        else setOverlay(action.type);
+        return;
+      }
+
+      if (action.type === 'goToWorkspace') {
+        const target = workspaces[action.number - 1];
+        if (target) switchWorkspace(target.id);
         return;
       }
 
@@ -210,7 +283,7 @@ function App() {
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [tabs, activeId]);
+  }, [workspaces, activeWorkspaceId, overlay]);
 
   const activeTab = tabs.find((tab) => tab.id === activeId);
   const activePane: PaneInfo = activeTab ? activeTab.panes[activeTab.focusedId] ?? {} : {};
@@ -221,6 +294,19 @@ function App() {
     <main className="relative flex h-dvh w-screen flex-col overflow-hidden bg-[#0b0d12] font-mono text-neutral-300">
       {/* Overlay title bar: the native traffic lights sit on top of this header (hence the left padding). */}
       <header data-tauri-drag-region className="flex h-10 shrink-0 select-none items-stretch pl-[78px]">
+        {/* the current workspace; click (or ⌘E) to switch */}
+        <button
+          type="button"
+          onClick={() => setOverlay('workspaces')}
+          className="my-2 mr-2 flex cursor-pointer items-center gap-2 rounded-md px-2 text-[13px] text-neutral-300 transition-colors hover:bg-white/5"
+        >
+          <span className="size-2 rounded-full" style={{ background: workspace.color }} />
+          <span className="max-w-32 truncate">{workspace.name}</span>
+          <ChevronDown size={12} className="text-neutral-600" />
+        </button>
+
+        <span className="my-3 mr-1 w-px bg-white/[0.06]" />
+
         <div role="tablist" className="flex items-stretch">
           {tabs.map((tab, position) => (
             <TerminalTab
@@ -249,24 +335,31 @@ function App() {
       </header>
 
       <div className="relative min-h-0 flex-1">
-        {tabs.map((tab) => (
-          <div
-            key={tab.id}
-            className={`absolute inset-0 px-2 ${tab.id === activeId ? '' : 'pointer-events-none invisible'}`}
-          >
-            <PaneLayout
-              root={tab.root}
-              active={tab.id === activeId}
-              focusedId={tab.focusedId}
-              fontSize={fontSize}
-              refocus={0}
-              onFocus={(paneId) => focusPane(tab.id, paneId)}
-              onPaneExit={(paneId) => closePaneInTab(tab.id, paneId)}
-              onRootChange={(root) => setRoot(tab.id, root)}
-              onPaneInfo={(paneId, change) => updatePaneInfo(tab.id, paneId, change)}
-            />
-          </div>
-        ))}
+        {/* every tab of every workspace stays mounted, so background shells keep running */}
+        {workspaces.map((w) =>
+          w.tabs.map((tab) => {
+            const visible = w.id === activeWorkspaceId && tab.id === w.activeTabId;
+
+            return (
+              <div
+                key={tab.id}
+                className={`absolute inset-0 px-2 ${visible ? '' : 'pointer-events-none invisible'}`}
+              >
+                <PaneLayout
+                  root={tab.root}
+                  active={visible}
+                  focusedId={tab.focusedId}
+                  fontSize={fontSize}
+                  refocus={refocus}
+                  onFocus={(paneId) => focusPane(tab.id, paneId)}
+                  onPaneExit={(paneId) => closePaneInTab(tab.id, paneId)}
+                  onRootChange={(root) => setRoot(tab.id, root)}
+                  onPaneInfo={(paneId, change) => updatePaneInfo(tab.id, paneId, change)}
+                />
+              </div>
+            );
+          }),
+        )}
       </div>
 
       {/* one quiet line: where you are, which branch, and a failure only when there is one */}
@@ -282,14 +375,25 @@ function App() {
 
         <button
           type="button"
-          onClick={() => setShowShortcuts(true)}
+          onClick={() => setOverlay('shortcuts')}
           className="ml-auto shrink-0 cursor-pointer text-neutral-600 transition-colors hover:text-neutral-300"
         >
           ⌘/
         </button>
       </footer>
 
-      {showShortcuts && <ShortcutSheet onClose={closeShortcuts} />}
+      {overlay === 'shortcuts' && <ShortcutSheet onClose={closeOverlay} />}
+      {overlay === 'workspaces' && (
+        <WorkspaceSwitcher
+          workspaces={workspaces.map((w) => ({ id: w.id, name: w.name, color: w.color }))}
+          activeId={activeWorkspaceId}
+          onSwitch={switchWorkspace}
+          onCreate={addWorkspace}
+          onRename={renameWorkspace}
+          onDelete={deleteWorkspace}
+          onClose={closeOverlay}
+        />
+      )}
     </main>
 
   )
