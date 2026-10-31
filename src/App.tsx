@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css"
 import TerminalTab from "./components/TerminalTab";
-import { PaneNode } from "./layout/paneTree";
+import { closePane, Direction, leaves, PaneNode, resizePane, splitPane } from "./layout/paneTree";
 import PaneLayout from "./components/PaneLayout";
+import { matchPaneAction } from "./keybindings";
 
 type Tab = {
   id: string;
@@ -12,31 +13,12 @@ type Tab = {
 };
 
 const createTab = (): Tab => {
-  //TEMP
-  const a = crypto.randomUUID();
-  const b = crypto.randomUUID();
-  const c = crypto.randomUUID();
+  const paneId = crypto.randomUUID();
   return {
     id: crypto.randomUUID(),
     title: 'zsh',
-    focusedId: a,
-    root: {
-      kind: 'split',
-      axis: 'row',
-      sizes: [0.5, 0.5],
-      children: [
-        { kind: 'leaf', id: a },
-        {
-          kind: 'split',
-          axis: 'column',
-          sizes: [0.5, 0.5],
-          children: [
-            { kind: 'leaf', id: b },
-            { kind: 'leaf', id: c },
-          ],
-        },
-      ],
-    },
+    root: { kind: 'leaf', id: paneId },
+    focusedId: paneId,
   };
 }
 
@@ -55,6 +37,27 @@ function App() {
       curr.map((tab) => (tab.id === tabId ? { ...tab, focusedId: paneId } : tab)
       ))
   }
+
+  // copy-then-change one tab, same pattern as focusPane
+  const updateTab = (tabId: string, change: (tab: Tab) => Tab) => {
+    setTabs((current) => current.map((tab) => (tab.id === tabId ? change(tab) : tab)));
+  };
+
+  const splitFocused = (tabId: string, direction: Direction) => {
+    const newId = crypto.randomUUID();
+    updateTab(tabId, (tab) => ({
+      ...tab,
+      root: splitPane(tab.root, tab.focusedId, newId, direction),
+      focusedId: newId, // the new pane gets focus
+    }));
+  };
+
+  const resizeFocused = (tabId: string, direction: Direction) => {
+    updateTab(tabId, (tab) => ({
+      ...tab,
+      root: resizePane(tab.root, tab.focusedId, direction),
+    }));
+  };
 
   const closeTab = (id: string) => {
     const position = tabs.findIndex((tab) => tab.id === id);
@@ -77,6 +80,48 @@ function App() {
       setActiveId(remaining[Math.min(position, remaining.length - 1)].id);
     }
   };
+
+  const closePaneInTab = (tabId: string, paneId: string) => {
+    const tab = tabs.find((t) => t.id === tabId);
+    if (!tab) return;
+
+    const root = closePane(tab.root, paneId);
+
+    // that was the last pane, so the whole tab goes
+    if (!root) {
+      closeTab(tabId);
+      return;
+    }
+
+    // same idea as closeTab: the pane that slides into this slot, else the last one
+    const before = leaves(tab.root);
+    const after = leaves(root);
+    const position = before.indexOf(paneId);
+    const focusedId =
+      paneId === tab.focusedId ? after[Math.min(position, after.length - 1)] : tab.focusedId;
+
+    updateTab(tabId, (t) => ({ ...t, root, focusedId }));
+  };
+
+  // re-registered whenever tabs or activeId change, so the handler never sees stale state
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const action = matchPaneAction(event);
+      if (!action) return;
+
+      event.preventDefault();
+
+      const tab = tabs.find((t) => t.id === activeId);
+      if (!tab) return;
+
+      if (action.type === 'split') splitFocused(tab.id, action.direction);
+      else if (action.type === 'resize') resizeFocused(tab.id, action.direction);
+      else closePaneInTab(tab.id, tab.focusedId);
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [tabs, activeId]);
 
   return (
     <main className="flex h-dvh w-screen flex-col overflow-hidden bg-[#0b0d12] font-mono text-neutral-300">
@@ -123,7 +168,7 @@ function App() {
               active={tab.id === activeId}
               focusedId={tab.focusedId}
               onFocus={(paneId) => focusPane(tab.id, paneId)}
-              onPaneExit={() => closeTab(tab.id)} // temporary: step 3 closes just the pane
+              onPaneExit={(paneId) => closePaneInTab(tab.id, paneId)}
             />
           </div>
         ))}

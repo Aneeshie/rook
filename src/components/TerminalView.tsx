@@ -4,6 +4,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { Terminal } from '@xterm/xterm';
 import type { IDisposable } from '@xterm/xterm';
 import { useEffect, useRef} from 'react'
+import { matchPaneAction } from '../keybindings';
 
 type TerminalOutput = {
   terminal_id: string;
@@ -72,6 +73,9 @@ const TerminalView = ({ active, onExit }: TerminalViewProps) => {
 
     const handleFontSizeChange = () => {
       terminal.attachCustomKeyEventHandler((event) => {
+        // pane shortcuts belong to App, so xterm must not send them to the shell
+        if (matchPaneAction(event)) return false;
+
         if (!event.metaKey || event.type !== "keydown") {
           return true;
         }
