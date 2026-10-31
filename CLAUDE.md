@@ -26,10 +26,16 @@ A Tauri 2 terminal emulator: React 19 + xterm.js frontend, Rust `portable-pty` b
 - Locking pattern: commands take the manager lock only to clone the session `Arc`, release it, then lock the individual session — keep this to avoid holding the global lock during PTY I/O.
 
 **Frontend (`src/`)**
-- `App.tsx` owns tab state (frontend tab ids are independent of backend session ids). All `TerminalView`s stay mounted; inactive tabs are hidden with `invisible`/`pointer-events-none` so their sessions and scrollback persist. Closing the last tab replaces it with a fresh one.
-- `components/TerminalView.tsx` owns one xterm instance and one backend session for its lifetime: it registers the `terminal-output`/`terminal-exit` listeners *before* calling `create_session` (filtering events by `terminal_id`) so no early output is lost, handles fit/resize → `resize_session`, font-size shortcuts, and calls `remove_session` on unmount. Shell exit triggers `onExit`, which closes the tab.
-- The header uses `data-tauri-drag-region` with left padding for macOS overlay traffic lights (custom title bar; native one removed in `tauri.conf.json`).
+- `App.tsx` owns all state: workspaces → tabs → a pane tree per tab, plus per-pane info reported by the shell (`panes`: cwd, branch, command status). Updates triggered by shells must find the tab across **all** workspaces, since background workspaces keep running.
+- Every tab of every workspace stays mounted (hidden ones are `invisible`), and `PaneLayout` renders panes as a flat list keyed by pane id, so terminals never remount when the tree reshapes.
+- `layout/paneTree.ts` is the pure pane-tree model (layout math, split/close/resize, normalization); see `docs/pane-layout.md` for its invariants.
+- `components/TerminalView.tsx` owns one xterm instance and one backend session: it registers output/exit listeners *before* `create_session` so no early output is lost, handles OSC 7 / 7777 / 133 from the shell integration, and calls `remove_session` on unmount.
+- Shortcuts go through one `matchAction` in `keybindings.ts`, used by both xterm (to swallow them) and `App` (to run them).
+- Colors come from the active theme via CSS variables (`theme.ts` → `App.css` → classes like `bg-bg`, `text-fg`); don't hard-code colors in components.
+- `localStorage` keys: `nara:session` (workspaces, layout, folders) and `nara:settings`.
+
+**Shell integration**: `pty.rs` starts zsh with `ZDOTDIR` pointing at the scripts in `src-tauri/shell/` (baked in with `include_str!`), which load the user's own config and then add the hooks. See `docs/shell-integration.md`.
 
 When changing the Tauri interface, keep command names, argument names (camelCase in JS ↔ snake_case in Rust per Tauri conversion), and event payload fields aligned on both sides, and review `src-tauri/capabilities/default.json`.
 
-`ui/` holds design mockups (pure terminal, terminal with AI, sessions and groups) indicating planned directions.
+Longer-form docs live in `docs/`.
