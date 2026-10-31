@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="src-tauri/icons/128x128@2x.png" alt="Rook icon" width="128" height="128">
+
 # Rook
 
 **A minimal, keyboard-driven terminal for macOS.**
@@ -11,6 +13,8 @@ Splits, tabs and workspaces that stay out of your way, with just enough help fro
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB.svg?logo=tauri&logoColor=white)
 ![Rust](https://img.shields.io/badge/Rust-backend-CE422B.svg?logo=rust&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB.svg?logo=react&logoColor=black)
+
+**[Download for macOS (Apple silicon)](https://github.com/Aneeshie/rook/releases/download/v0.1.0/Rook_0.1.0_aarch64.dmg)**
 
 [Features](#features) · [Installation](#installation) · [Usage](#usage) · [Configuration](#configuration) · [Documentation](#documentation) · [Contributing](#contributing)
 
@@ -52,7 +56,7 @@ Most terminals either do too little or put everything on screen at once. Rook ke
 
 ### Download
 
-Download the latest `.dmg` from the [Releases](https://github.com/Aneeshie/rook/releases) page, open it, and drag **Rook** into **Applications**.
+Download **[Rook_0.1.0_aarch64.dmg](https://github.com/Aneeshie/rook/releases/download/v0.1.0/Rook_0.1.0_aarch64.dmg)** (Apple silicon), open it, and drag **Rook** into **Applications**. Other versions are on the [Releases](https://github.com/Aneeshie/rook/releases) page.
 
 Rook isn't notarized by Apple yet, so the first launch is blocked by Gatekeeper. Right-click **Rook** in Applications and choose **Open**, or clear the quarantine flag once:
 
