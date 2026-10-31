@@ -7,7 +7,20 @@ export type Action =
   | { type: 'close' }
   | { type: 'newTab' }
   | { type: 'goToTab'; number: number } // 1–9, where 9 means the last tab
-  | { type: 'fontSize'; change: 'increase' | 'decrease' | 'reset' };
+  | { type: 'fontSize'; change: 'increase' | 'decrease' | 'reset' }
+  | { type: 'shortcuts' };
+
+// what the ⌘/ sheet lists; keep in sync with matchAction below
+export const SHORTCUTS: { keys: string; label: string }[] = [
+  { keys: '⌘T', label: 'New tab' },
+  { keys: '⌘1–9', label: 'Go to tab' },
+  { keys: '⌘⌥ h j k l', label: 'Split pane' },
+  { keys: '⌘⇧ h j k l', label: 'Move focus' },
+  { keys: '⌘⌃ h j k l', label: 'Resize pane' },
+  { keys: '⌘W', label: 'Close pane' },
+  { keys: '⌘+ / ⌘−', label: 'Font size' },
+  { keys: '⌘0', label: 'Reset font size' },
+];
 
 // vim directions; event.code is the physical key, so ⌥ turning h into ˙ doesn't matter
 const VIM_DIRECTIONS: Record<string, Direction> = {
@@ -25,6 +38,7 @@ export function matchAction(event: KeyboardEvent): Action | null {
 
   if (onlyMeta && event.code === 'KeyW') return { type: 'close' };
   if (onlyMeta && event.code === 'KeyT') return { type: 'newTab' };
+  if (onlyMeta && event.code === 'Slash') return { type: 'shortcuts' };
 
   // ⌘1 … ⌘9
   if (onlyMeta && /^Digit[1-9]$/.test(event.code)) {

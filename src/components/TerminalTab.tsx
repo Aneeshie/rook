@@ -1,38 +1,48 @@
+import { X } from 'lucide-react';
+
 type TerminalTabProps = {
   index: number;
-  title: string;
+  title: string; // short: just the folder name
+  path?: string; // full path, shown on hover
   active: boolean;
+  running: boolean;
   onSelect: () => void;
   onClose: () => void;
 }
 
-const TerminalTab = ({ index, title, active, onSelect, onClose }: TerminalTabProps) => {
+const TerminalTab = ({ index, title, path, active, running, onSelect, onClose }: TerminalTabProps) => {
   return (
     <div
       role="tab"
       aria-selected={active}
-      className={`group flex h-full items-center border-b-2 text-sm ${
-        active ? 'border-b-[#e5b05a] bg-[#11141b]' : 'border-b-transparent'
-      }`}
+      title={path}
+      className="group relative flex h-full items-center"
     >
       <button
         type="button"
         onClick={onSelect}
-        className={`flex h-full cursor-pointer items-center gap-2 pl-3 pr-1 ${
-          active ? 'text-neutral-100' : 'text-neutral-400 hover:text-neutral-200'
+        className={`flex h-full cursor-pointer items-center gap-2 pl-3 pr-1 text-[13px] transition-colors ${
+          active ? 'text-neutral-100' : 'text-neutral-500 hover:text-neutral-300'
         }`}
       >
-        <span className={active ? 'text-[#e5b05a]' : ''}>{index}</span>
-        <span>{title}</span>
+        {/* a small dot while something runs in this tab, otherwise nothing */}
+        <span
+          className={`size-1.5 rounded-full transition-opacity ${running ? 'bg-[#e5b05a] opacity-100' : 'opacity-0'}`}
+        />
+        <span className="max-w-40 truncate">{title}</span>
       </button>
+
       <button
         type="button"
         aria-label={`Close tab ${index}`}
         onClick={onClose}
-        className="mr-2 cursor-pointer rounded px-1 text-neutral-600 group-hover:text-neutral-400 hover:bg-[#1c212b] hover:text-neutral-100"
+        className="mr-1.5 cursor-pointer rounded p-0.5 text-neutral-500 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-white/5 hover:text-neutral-200"
       >
-        ×
+        <X size={12} strokeWidth={2} />
       </button>
+
+      {/* the active tab's underline, inset so it reads as a mark rather than a border */}
+      {active && <span className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-[#e5b05a]" />}
     </div>
   )
 }

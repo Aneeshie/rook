@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { GitBranch, Plus } from "lucide-react";
 import "./App.css"
 import TerminalTab from "./components/TerminalTab";
 import {
@@ -11,9 +12,9 @@ import {
   resizePane,
   splitPane,
 } from "./layout/paneTree";
-import PaneLayout from "./components/PaneLayout";
+import PaneLayout, { PaneInfo } from "./components/PaneLayout";
 import { matchAction } from "./keybindings";
-import { CommandStatus } from "./components/TerminalView";
+import ShortcutSheet from "./components/ShortcutSheet";
 
 const DEFAULT_FONT_SIZE = 14;
 const MIN_FONT_SIZE = 10;
@@ -23,9 +24,7 @@ type Tab = {
   id: string;
   root: PaneNode;
   focusedId: string;
-  cwds: Record<string, string>; // paneId -> that pane's current dir
-  branches: Record<string, string>;// paneId -> that pane's git branch ('' outside a repo)
-  statuses: Record<string, CommandStatus>; // paneId -> is it running or how did the last command end
+  panes: Record<string, PaneInfo>; // paneId -> what its shell has told us (cwd, branch, status, …)
 };
 
 const createTab = (): Tab => {
@@ -34,25 +33,34 @@ const createTab = (): Tab => {
     id: crypto.randomUUID(),
     root: { kind: 'leaf', id: paneId },
     focusedId: paneId,
-    cwds: {},
-    branches: {},
-    statuses: {},
+    panes: {},
   };
 }
 
 const shortenHome = (path: string) => path.replace(/^\/(Users|home)\/[^/]+/, '~');
 
-// the focused pane's dir
+// just the folder name for the tab: /Users/aneesh/work/api → "api", home → "~"
+const folderName = (path: string) => {
+  const short = shortenHome(path);
+  if (short === '~' || short === '/') return short;
+  return short.split('/').filter(Boolean).pop() ?? short;
+};
+
+// the focused pane's folder, or "zsh" until the shell has told us
 const tabTitle = (tab: Tab) => {
-  const cwd = tab.cwds[tab.focusedId];
-  return cwd ? shortenHome(cwd) : 'zsh';
-}
+  const cwd = tab.panes[tab.focusedId]?.cwd;
+  return cwd ? folderName(cwd) : 'zsh';
+};
+
+const isRunning = (tab: Tab) => Object.values(tab.panes).some((pane) => pane.status?.state === 'running');
 
 function App() {
   const [tabs, setTabs] = useState<Tab[]>(() => [createTab()]);
   const [activeId, setActiveId] = useState<string>(() => tabs[0].id);
   // shared by every terminal in every tab, so new tabs and panes start at the same size
   const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const closeShortcuts = useCallback(() => setShowShortcuts(false), []);
 
   const addTab = () => {
     const tab = createTab();
@@ -101,16 +109,12 @@ function App() {
     updateTab(tabId, (tab) => ({ ...tab, root }));
   };
 
-  const setPaneCwd = (tabId: string, paneId: string, cwd: string) => {
-    updateTab(tabId, (tab) => ({ ...tab, cwds: { ...tab.cwds, [paneId]: cwd } }));
-  };
-
-  const setPaneBranch = (tabId: string, paneId: string, branch: string) => {
-    updateTab(tabId, (tab) => ({ ...tab, branches: { ...tab.branches, [paneId]: branch } }));
-  };
-
-  const setPaneCommandStatus = (tabId: string, paneId: string, status: CommandStatus) => {
-    updateTab(tabId, (tab) => ({ ...tab, statuses: { ...tab.statuses, [paneId]: status } }));
+  // merge what a pane just told us into what we already know about it
+  const updatePaneInfo = (tabId: string, paneId: string, change: PaneInfo) => {
+    updateTab(tabId, (tab) => ({
+      ...tab,
+      panes: { ...tab.panes, [paneId]: { ...tab.panes[paneId], ...change } },
+    }));
   };
 
   const closeTab = (id: string) => {
@@ -154,7 +158,11 @@ function App() {
     const focusedId =
       paneId === tab.focusedId ? after[Math.min(position, after.length - 1)] : tab.focusedId;
 
-    updateTab(tabId, (t) => ({ ...t, root, focusedId }));
+    // forget the closed pane's info
+    updateTab(tabId, (t) => {
+      const { [paneId]: _closed, ...panes } = t.panes;
+      return { ...t, root, focusedId, panes };
+    });
   };
 
   // re-registered whenever tabs or activeId change, so the handler never sees stale state
@@ -164,6 +172,11 @@ function App() {
       if (!action) return;
 
       event.preventDefault();
+
+      if (action.type === 'shortcuts') {
+        setShowShortcuts((open) => !open);
+        return;
+      }
 
       if (action.type === 'newTab') {
         addTab();
@@ -200,23 +213,23 @@ function App() {
   }, [tabs, activeId]);
 
   const activeTab = tabs.find((tab) => tab.id === activeId);
-  const activeBranch = activeTab ? activeTab.branches[activeTab.focusedId] : '';
-  const activeStatus = activeTab ? activeTab.statuses[activeTab.focusedId] : undefined;
-  return (
-    <main className="flex h-dvh w-screen flex-col overflow-hidden bg-[#0b0d12] font-mono text-neutral-300">
-      {/* Overlay title bar: the native traffic lights sit on top of this header (hence the left padding). */}
-      <header
-        data-tauri-drag-region
-        className="flex h-10 shrink-0 select-none items-stretch border-b border-[#1c212b] pl-[78px]"
-      >
+  const activePane: PaneInfo = activeTab ? activeTab.panes[activeTab.focusedId] ?? {} : {};
+  const activeCwd = activePane.cwd ? shortenHome(activePane.cwd) : '';
+  const exitCode = activePane.status?.state === 'done' ? activePane.status.exitCode : 0;
 
+  return (
+    <main className="relative flex h-dvh w-screen flex-col overflow-hidden bg-[#0b0d12] font-mono text-neutral-300">
+      {/* Overlay title bar: the native traffic lights sit on top of this header (hence the left padding). */}
+      <header data-tauri-drag-region className="flex h-10 shrink-0 select-none items-stretch pl-[78px]">
         <div role="tablist" className="flex items-stretch">
           {tabs.map((tab, position) => (
             <TerminalTab
               key={tab.id}
               index={position + 1}
               title={tabTitle(tab)}
+              path={tab.panes[tab.focusedId]?.cwd}
               active={tab.id === activeId}
+              running={isRunning(tab)}
               onSelect={() => setActiveId(tab.id)}
               onClose={() => closeTab(tab.id)}
             />
@@ -227,9 +240,9 @@ function App() {
           type="button"
           aria-label="New tab"
           onClick={addTab}
-          className="cursor-pointer px-3 text-sm text-neutral-500 hover:text-neutral-100"
+          className="flex cursor-pointer items-center px-2 text-neutral-600 transition-colors hover:text-neutral-200"
         >
-          +
+          <Plus size={14} />
         </button>
 
         <div data-tauri-drag-region className="flex-1" />
@@ -239,8 +252,7 @@ function App() {
         {tabs.map((tab) => (
           <div
             key={tab.id}
-            className={`absolute inset-0 px-5 py-3 ${tab.id === activeId ? '' : 'pointer-events-none invisible'
-              }`}
+            className={`absolute inset-0 px-2 ${tab.id === activeId ? '' : 'pointer-events-none invisible'}`}
           >
             <PaneLayout
               root={tab.root}
@@ -250,28 +262,33 @@ function App() {
               onFocus={(paneId) => focusPane(tab.id, paneId)}
               onPaneExit={(paneId) => closePaneInTab(tab.id, paneId)}
               onRootChange={(root) => setRoot(tab.id, root)}
-              onPaneCwd={(paneId, cwd) => setPaneCwd(tab.id, paneId, cwd)}
-              onPaneCommandStatus={(paneId, status) => setPaneCommandStatus(tab.id, paneId, status)}
-              onPaneBranch={(paneId, branch) => setPaneBranch(tab.id, paneId, branch)}
+              onPaneInfo={(paneId, change) => updatePaneInfo(tab.id, paneId, change)}
             />
           </div>
         ))}
       </div>
 
-      <footer className="flex h-8 shrink-0 items-center gap-4 border-t border-[#1c212b] text-xs">
-        <span className="flex h-full items-center bg-[#e5b05a] px-3 font-bold text-black">TERM</span>
-        <span className="flex items-center gap-2 text-neutral-300">
-          <span className="size-2 rounded-full bg-[#e5b05a]" />{activeTab ? tabTitle(activeTab) : ''}
-          {activeBranch && <span className="text-[#6ea8fe]">{activeBranch}</span>}
-          {activeStatus?.state === 'running' && <span className="text-[#e5b05a]">running…</span>}
-          {activeStatus?.state === 'done' && activeStatus.exitCode !== 0 && (
-            <span className="text-[#f47067]">exit {activeStatus.exitCode}</span>
-          )}
-        </span>
-        <span className="ml-auto pr-4 text-neutral-500">
-          {tabs.length} {tabs.length === 1 ? 'tab' : 'tabs'}
-        </span>
+      {/* one quiet line: where you are, which branch, and a failure only when there is one */}
+      <footer className="flex h-7 shrink-0 select-none items-center gap-4 px-4 text-[11px] text-neutral-500">
+        <span className="truncate">{activeCwd}</span>
+        {activePane.branch && (
+          <span className="flex shrink-0 items-center gap-1 text-[#6ea8fe]/80">
+            <GitBranch size={11} />
+            {activePane.branch}
+          </span>
+        )}
+        {exitCode !== 0 && <span className="shrink-0 text-[#f47067]">exit {exitCode}</span>}
+
+        <button
+          type="button"
+          onClick={() => setShowShortcuts(true)}
+          className="ml-auto shrink-0 cursor-pointer text-neutral-600 transition-colors hover:text-neutral-300"
+        >
+          ⌘/
+        </button>
       </footer>
+
+      {showShortcuts && <ShortcutSheet onClose={closeShortcuts} />}
     </main>
 
   )

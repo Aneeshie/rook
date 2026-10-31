@@ -6,6 +6,16 @@ import TerminalView, { CommandStatus } from "./TerminalView";
 // extra invisible width on each side of a divider, so the 4px line is easy to grab
 const DIVIDER_GRAB = 3;
 
+// everything a pane's shell has told us about itself
+export type PaneInfo = {
+  cwd?: string;
+  branch?: string; // '' outside a repo
+  status?: CommandStatus;
+  command?: string; // what's running right now, '' at the prompt
+  cols?: number;
+  rows?: number;
+};
+
 type PaneLayoutProps = {
   root: PaneNode;
   active: boolean;
@@ -14,9 +24,7 @@ type PaneLayoutProps = {
   onFocus: (paneId: string) => void;
   onPaneExit: (paneId: string) => void;
   onRootChange: (root: PaneNode) => void;
-  onPaneCwd: (paneId: string, cwd: string) => void;
-  onPaneBranch: (paneId: string, branch: string) => void;
-  onPaneCommandStatus: (paneId: string, status: CommandStatus) => void;
+  onPaneInfo: (paneId: string, change: PaneInfo) => void;
 }
 
 type Drag = {
@@ -25,7 +33,7 @@ type Drag = {
   startPosition: number; // pointer x (row) or y (column) when the drag began
 };
 
-const PaneLayout = ({ root, active, focusedId, fontSize, onFocus, onPaneExit, onRootChange, onPaneCwd, onPaneBranch, onPaneCommandStatus }: PaneLayoutProps) => {
+const PaneLayout = ({ root, active, focusedId, fontSize, onFocus, onPaneExit, onRootChange, onPaneInfo }: PaneLayoutProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 })
   const dragRef = useRef<Drag | null>(null);
@@ -79,30 +87,36 @@ const PaneLayout = ({ root, active, focusedId, fontSize, onFocus, onPaneExit, on
     setDragging(null);
   };
 
-  // dim the panes that aren't receiving keys, but only when there's more than one
-  const showFocus = panes.size > 1;
+  // with several panes, the ones not receiving keys fade back; no labels needed
+  const dimUnfocused = panes.size > 1;
 
   return (
     <div ref={containerRef} className="relative h-full w-full">
-      {[...panes].map(([paneId, rect]) => (
-        <div
-          key={paneId}
-          className={`absolute px-3 py-2 transition-opacity duration-150 ${ // padding keeps the text off the dividers
-            showFocus && paneId !== focusedId ? 'opacity-50' : ''
+      {[...panes].map(([paneId, rect]) => {
+        const focused = paneId === focusedId;
+
+        return (
+          <div
+            key={paneId}
+            className={`absolute px-3 py-2 transition-opacity duration-200 ${ // padding keeps the text off the dividers
+              dimUnfocused && !focused ? 'opacity-45' : ''
             }`}
-          style={{ left: rect.x, top: rect.y, width: rect.width, height: rect.height }}
-          onMouseDown={() => onFocus(paneId)}
-        >
-          <TerminalView
-            active={active && paneId === focusedId}
-            fontSize={fontSize}
-            onExit={() => onPaneExit(paneId)}
-            onCwdChange={(cwd) => onPaneCwd(paneId, cwd)}
-            onBranchChange={(branch) => onPaneBranch(paneId, branch)}
-            onCommandStatus={(status) => onPaneCommandStatus(paneId, status)}
-          />
-        </div>
-      ))}
+            style={{ left: rect.x, top: rect.y, width: rect.width, height: rect.height }}
+            onMouseDown={() => onFocus(paneId)}
+          >
+            <TerminalView
+              active={active && focused}
+              fontSize={fontSize}
+              onExit={() => onPaneExit(paneId)}
+              onCwdChange={(cwd) => onPaneInfo(paneId, { cwd })}
+              onBranchChange={(branch) => onPaneInfo(paneId, { branch })}
+              onCommandStatus={(status) => onPaneInfo(paneId, { status })}
+              onCommandChange={(command) => onPaneInfo(paneId, { command })}
+              onSizeChange={(cols, rows) => onPaneInfo(paneId, { cols, rows })}
+            />
+          </div>
+        );
+      })}
 
       {dividers.map((divider) => {
         const key = dividerKey(divider);
@@ -134,12 +148,14 @@ const PaneLayout = ({ root, active, focusedId, fontSize, onFocus, onPaneExit, on
             onPointerCancel={endDrag}
           >
             <div
-              className={`absolute transition-colors ${dragging === key ? 'bg-[#e5b05a]' : 'bg-[#1c212b] group-hover:bg-[#3a4150]'
-                }`}
+              className={`absolute transition-colors ${
+                dragging === key ? 'bg-[#e5b05a]' : 'bg-white/[0.06] group-hover:bg-white/20'
+              }`}
+              // a hairline in the middle of the gap; the gap itself stays as breathing room
               style={
                 isRow
-                  ? { left: DIVIDER_GRAB, top: 0, width: divider.rect.width, height: '100%' }
-                  : { left: 0, top: DIVIDER_GRAB, width: '100%', height: divider.rect.height }
+                  ? { left: DIVIDER_GRAB + (divider.rect.width - 1) / 2, top: 0, width: 1, height: '100%' }
+                  : { left: 0, top: DIVIDER_GRAB + (divider.rect.height - 1) / 2, width: '100%', height: 1 }
               }
             />
           </div>
