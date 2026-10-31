@@ -1,21 +1,21 @@
 # Shell integration
 
-Nara knows each pane's folder, git branch and running command, and when commands start and fail, because zsh tells it. The shell prints small, invisible escape sequences into its normal output, and the terminal reacts to them instead of displaying them.
+Rook knows each pane's folder, git branch and running command, and when commands start and fail, because zsh tells it. The shell prints small, invisible escape sequences into its normal output, and the terminal reacts to them instead of displaying them.
 
 ## How zsh gets the hooks
 
-Nara never edits your `~/.zshrc`. Instead, `pty.rs` starts zsh with two environment variables:
+Rook never edits your `~/.zshrc`. Instead, `pty.rs` starts zsh with two environment variables:
 
 | Variable | Value |
 |---|---|
-| `ZDOTDIR` | a temp folder holding Nara's own `.zshenv` and `.zshrc` |
+| `ZDOTDIR` | a temp folder holding Rook's own `.zshenv` and `.zshrc` |
 | `NARA_USER_ZDOTDIR` | where your real config lives (your `ZDOTDIR`, or `$HOME`) |
 
-zsh reads its startup files from `ZDOTDIR`, so it reads Nara's. Those files:
+zsh reads its startup files from `ZDOTDIR`, so it reads Rook's. Those files:
 
 1. load your real `.zshenv` and `.zshrc`, so your prompt, theme and aliases work as usual;
 2. put `ZDOTDIR` back to your real folder;
-3. add Nara's hooks.
+3. add Rook's hooks.
 
 The scripts live in `src-tauri/shell/` and are compiled into the app with `include_str!`, then written to the temp folder each time a pane starts.
 
@@ -32,7 +32,7 @@ All of them are OSC sequences: `ESC ] <number> ; <data> BEL`.
 | `OSC 133 ; D ; <exit code>` | when a command ends | output ends here, with this exit code |
 | `OSC 133 ; A` | before every prompt | a prompt starts here |
 
-`OSC 7` and `OSC 133` are standard, shared with iTerm2, VS Code, WezTerm and others. `7777` is Nara's own.
+`OSC 7` and `OSC 133` are standard, shared with iTerm2, VS Code, WezTerm and others. `7777` is Rook's own.
 
 The `precmd` hook that sends `D` runs first among `precmd` hooks, so it reads `$?` before a prompt theme can overwrite it. It only sends `D` when a command actually ran, not for an empty Enter.
 

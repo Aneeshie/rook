@@ -1,8 +1,8 @@
-# Nara
+# Rook
 
 A minimal, keyboard-driven terminal for macOS, built with Tauri, React and Rust.
 
-Nara stays out of the way: no toolbars, no status clutter, just your shells, with splits, workspaces and a little help from the shell when it's useful.
+Rook stays out of the way: no toolbars, no status clutter, just your shells, with splits, workspaces and a little help from the shell when it's useful.
 
 ## Features
 
@@ -11,7 +11,7 @@ Nara stays out of the way: no toolbars, no status clutter, just your shells, wit
 - **Picks up where you left off.** Workspaces, tabs, splits and each pane's folder are restored on launch.
 - **Shell integration.** Tabs show the current folder, the status line shows the git branch, and failed commands are marked right in the output. New splits and tabs open where you are.
 - **Themes and fonts.** Nara, Tokyo Night, Rosé Pine and Catppuccin Mocha; JetBrains Mono, Geist Mono, Fira Code, IBM Plex Mono or SF Mono; separate terminal and interface sizes.
-- **Your config, untouched.** Your `.zshrc`, prompt and aliases work as usual. Nara adds its hooks without editing them.
+- **Your config, untouched.** Your `.zshrc`, prompt and aliases work as usual. Rook adds its hooks without editing them.
 
 ## Getting started
 
@@ -63,8 +63,12 @@ The full list is in [docs/keybindings.md](docs/keybindings.md).
 
 ## Status
 
-Nara is early and macOS-only for now. Every pane runs `zsh`.
+Rook is early and macOS-only for now. Every pane runs `zsh`.
 
 ## Contributing
 
 Issues and pull requests are welcome. Before opening one, run `bun run build` and `cargo check --manifest-path src-tauri/Cargo.toml`, and try your change in `bun run tauri dev`. See [Development](docs/development.md) for conventions.
+
+## License
+
+[MIT](LICENSE)

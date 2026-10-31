@@ -1,6 +1,6 @@
 # Architecture
 
-Nara is a [Tauri 2](https://tauri.app) app: a Rust backend owns the shells, and a React + TypeScript frontend draws them with [xterm.js](https://xtermjs.org).
+Rook is a [Tauri 2](https://tauri.app) app: a Rust backend owns the shells, and a React + TypeScript frontend draws them with [xterm.js](https://xtermjs.org).
 
 ```
 ┌──────────────────────── frontend (src/) ────────────────────────┐
@@ -22,7 +22,7 @@ Nara is a [Tauri 2](https://tauri.app) app: a Rust backend owns the shells, and 
 |---|---|
 | `lib.rs` | Registers the Tauri commands and a global `Mutex<SessionManager>`. |
 | `session.rs` | Maps session ids (UUIDs) to `Arc<Mutex<PtySession>>`. On creation it starts a thread that forwards PTY output to the frontend. |
-| `pty.rs` | Opens a PTY with `portable-pty`, starts `zsh` with Nara's [shell integration](shell-integration.md), and handles writes, resizes and shutdown. |
+| `pty.rs` | Opens a PTY with `portable-pty`, starts `zsh` with Rook's [shell integration](shell-integration.md), and handles writes, resizes and shutdown. |
 
 ### Commands
 
