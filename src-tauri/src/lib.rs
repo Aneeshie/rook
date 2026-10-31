@@ -26,11 +26,12 @@ fn create_session(
     state: tauri::State<'_, Mutex<SessionManager>>,
     rows: u16,
     cols: u16,
+    cwd: Option<String>,
 ) -> Result<String, String> {
     let mut manager = state.lock().map_err(|e| e.to_string())?;
 
     manager
-        .create_session(app, rows, cols)
+        .create_session(app, rows, cols, cwd)
         .map_err(|e| e.to_string())
 }
 

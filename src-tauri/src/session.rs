@@ -25,6 +25,7 @@ impl SessionManager {
         app: tauri::AppHandle,
         rows: u16,
         cols: u16,
+        cwd: Option<String>,
     ) -> anyhow::Result<String> {
         let id = uuid::Uuid::new_v4().to_string();
 
@@ -35,7 +36,7 @@ impl SessionManager {
             pixel_width: 0,
         };
 
-        let (pty_session, output_rx) = PtySession::new(size)?;
+        let (pty_session, output_rx) = PtySession::new(size, cwd)?;
 
         self.sessions
             .insert(id.clone(), Arc::new(Mutex::new(pty_session)));
