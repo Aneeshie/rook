@@ -1,0 +1,5 @@
+# zsh reads this second for login shells (every Rook pane is one), still from our folder.
+# Load the user's own .zprofile: it's usually where Homebrew and other tools set up PATH.
+if [[ -f "$NARA_USER_ZDOTDIR/.zprofile" ]]; then
+  source "$NARA_USER_ZDOTDIR/.zprofile"
+fi
