@@ -13,7 +13,8 @@
 |---|---|
 | `bun install` | Install JavaScript dependencies |
 | `bun run tauri dev` | Run the app with hot reload |
-| `bun run tauri build` | Build a release bundle |
+| `bun run tauri build` | Build every release bundle |
+| `bun run build:dmg` | Build a macOS disk image into `src-tauri/target/release/bundle/dmg/` |
 | `bun run build` | Type-check and build the frontend only |
 | `bun run dev` | Frontend only, in a browser (no shells: Tauri commands aren't available there) |
 | `cargo check --manifest-path src-tauri/Cargo.toml` | Check the Rust backend |
