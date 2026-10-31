@@ -27,7 +27,7 @@ pub struct PtySession {
 }
 
 impl PtySession {
-    pub fn new(size: PtySize) -> anyhow::Result<(Self, Receiver<Vec<u8>>)> {
+    pub fn new(size: PtySize, cwd: Option<String>) -> anyhow::Result<(Self, Receiver<Vec<u8>>)> {
         //use the native pty implementation for the system
         let pty_system = native_pty_system();
 
@@ -42,6 +42,13 @@ impl PtySession {
 
         cmd.env("NARA_USER_ZDOTDIR", user_zdotdir);
         cmd.env("ZDOTDIR", shell_integration_dir()?);
+
+        // start in the folder the frontend asked for, if it still exists; otherwise zsh starts at home
+        if let Some(dir) = cwd {
+            if std::path::Path::new(&dir).is_dir() {
+                cmd.cwd(dir);
+            }
+        }
 
         let child = pair.slave.spawn_command(cmd)?;
 
