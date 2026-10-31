@@ -28,13 +28,14 @@ type Tab = {
   panes: Record<string, PaneInfo>; // paneId -> what its shell has told us (cwd, branch, status, …)
 };
 
-const createTab = (): Tab => {
+// cwd: the folder the first shell starts in (none means home)
+const createTab = (cwd?: string): Tab => {
   const paneId = crypto.randomUUID();
   return {
     id: crypto.randomUUID(),
     root: { kind: 'leaf', id: paneId },
     focusedId: paneId,
-    panes: {},
+    panes: cwd ? { [paneId]: { cwd } } : {},
   };
 }
 
@@ -74,7 +75,6 @@ const isRunning = (tab: Tab) => Object.values(tab.panes).some((pane) => pane.sta
 function App() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>(() => [createWorkspace('default', WORKSPACE_COLORS[0])]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState(() => workspaces[0].id);
-  // shared by every terminal in every tab, so new tabs and panes start at the same size
   const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE);
   const [overlay, setOverlay] = useState<'shortcuts' | 'workspaces' | null>(null);
   // bumped when an overlay closes, so the active terminal gets the keyboard back
@@ -106,8 +106,10 @@ function App() {
       ),
     );
   };
+  // a new tab opens where you are, like a new split does
   const addTab = () => {
-    const tab = createTab();
+    const current = workspace.tabs.find((t) => t.id === workspace.activeTabId);
+    const tab = createTab(current?.panes[current.focusedId]?.cwd);
     updateWorkspace((w) => ({ ...w, tabs: [...w.tabs, tab], activeTabId: tab.id }));
   };
 
@@ -150,6 +152,8 @@ function App() {
       ...tab,
       root: splitPane(tab.root, tab.focusedId, newId, direction),
       focusedId: newId, // the new pane gets focus
+      // and starts in the same folder as the pane it was split from
+      panes: { ...tab.panes, [newId]: { cwd: tab.panes[tab.focusedId]?.cwd } },
     }));
   };
 
@@ -351,6 +355,7 @@ function App() {
                   focusedId={tab.focusedId}
                   fontSize={fontSize}
                   refocus={refocus}
+                  startCwds={Object.fromEntries(Object.entries(tab.panes).map(([id, pane]) => [id, pane.cwd]))}
                   onFocus={(paneId) => focusPane(tab.id, paneId)}
                   onPaneExit={(paneId) => closePaneInTab(tab.id, paneId)}
                   onRootChange={(root) => setRoot(tab.id, root)}

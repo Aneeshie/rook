@@ -38,6 +38,7 @@ type TerminalViewProps = {
   onCommandChange: (command: string) => void;
   onSizeChange: (cols: number, rows: number) => void;
   refocus: number; // bumped by App to give the active terminal its keyboard focus back
+  startCwd?: string; // the folder the shell starts in; read once, when the session is created
 }
 
 const TerminalView = ({
@@ -50,6 +51,7 @@ const TerminalView = ({
   onCommandChange,
   onSizeChange,
   refocus,
+  startCwd,
 }: TerminalViewProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const onExitRef = useRef(onExit);
@@ -70,6 +72,9 @@ const TerminalView = ({
 
   const onCommandChangeRef = useRef(onCommandChange);
   onCommandChangeRef.current = onCommandChange;
+
+  // only the first value matters: the shell is started once
+  const startCwdRef = useRef(startCwd);
 
   const onSizeChangeRef = useRef(onSizeChange);
   onSizeChangeRef.current = onSizeChange;
@@ -340,7 +345,7 @@ const TerminalView = ({
         const rows = terminal.rows;
         const cols = terminal.cols;
 
-        const createdId = await invoke<string>("create_session", { rows, cols });
+        const createdId = await invoke<string>("create_session", { rows, cols, cwd: startCwdRef.current });
 
         if (cancelled) {
           // unmounted while the session was being created: close it ourselves

@@ -22,6 +22,7 @@ type PaneLayoutProps = {
   focusedId: string;
   fontSize: number;
   refocus: number;
+  startCwds: Record<string, string | undefined>; // paneId → folder its shell should start in
   onFocus: (paneId: string) => void;
   onPaneExit: (paneId: string) => void;
   onRootChange: (root: PaneNode) => void;
@@ -34,7 +35,7 @@ type Drag = {
   startPosition: number; // pointer x (row) or y (column) when the drag began
 };
 
-const PaneLayout = ({ root, active, focusedId, fontSize, refocus, onFocus, onPaneExit, onRootChange, onPaneInfo }: PaneLayoutProps) => {
+const PaneLayout = ({ root, active, focusedId, fontSize, refocus, startCwds, onFocus, onPaneExit, onRootChange, onPaneInfo }: PaneLayoutProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 })
   const dragRef = useRef<Drag | null>(null);
@@ -108,6 +109,7 @@ const PaneLayout = ({ root, active, focusedId, fontSize, refocus, onFocus, onPan
             <TerminalView
               active={active && focused}
               refocus={refocus}
+              startCwd={startCwds[paneId]}
               fontSize={fontSize}
               onExit={() => onPaneExit(paneId)}
               onCwdChange={(cwd) => onPaneInfo(paneId, { cwd })}
