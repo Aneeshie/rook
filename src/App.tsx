@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ChevronDown, GitBranch, Plus } from "lucide-react";
+import { ChevronDown, GitBranch, Plus, Settings2 } from "lucide-react";
 import "./App.css"
 import TerminalTab from "./components/TerminalTab";
 import {
@@ -16,8 +16,9 @@ import PaneLayout, { PaneInfo } from "./components/PaneLayout";
 import { matchAction } from "./keybindings";
 import ShortcutSheet from "./components/ShortcutSheet";
 import WorkspaceSwitcher from "./components/WorkspaceSwitcher";
+import SettingsPanel from "./components/SettingsPanel";
 import { applyUiTheme, fontById, themeById } from "./theme";
-import { DEFAULT_SETTINGS, loadSettings, saveSettings, TERMINAL_FONT_SIZE } from "./settings";
+import { DEFAULT_SETTINGS, loadSettings, saveSettings, Settings, TERMINAL_FONT_SIZE } from "./settings";
 
 type Tab = {
   id: string;
@@ -120,10 +121,14 @@ function App() {
   );
   // shared by every terminal in every tab, so new tabs and panes start at the same size
   const [settings, setSettings] = useState(loadSettings);
-  const [overlay, setOverlay] = useState<'shortcuts' | 'workspaces' | null>(null);
+  const [overlay, setOverlay] = useState<'shortcuts' | 'workspaces' | 'settings' | null>(null);
 
   const theme = themeById(settings.theme);
   const font = fontById(settings.font);
+
+  const updateSettings = (change: Partial<Settings>) => {
+    setSettings((current) => ({ ...current, ...change }));
+  };
 
   // repaint the UI and remember the choice whenever a setting changes
   useEffect(() => {
@@ -311,7 +316,7 @@ function App() {
 
       event.preventDefault();
 
-      if (action.type === 'shortcuts' || action.type === 'workspaces') {
+      if (action.type === 'shortcuts' || action.type === 'workspaces' || action.type === 'settings') {
         if (overlay === action.type) closeOverlay();
         else setOverlay(action.type);
         return;
@@ -458,10 +463,19 @@ function App() {
           >
             ⌘/
           </button>
+          <button
+            type="button"
+            aria-label="Settings"
+            onClick={() => setOverlay('settings')}
+            className="cursor-pointer text-faint transition-colors hover:text-soft"
+          >
+            <Settings2 size={12} />
+          </button>
         </span>
       </footer>
 
       {overlay === 'shortcuts' && <ShortcutSheet onClose={closeOverlay} />}
+      {overlay === 'settings' && <SettingsPanel settings={settings} onChange={updateSettings} onClose={closeOverlay} />}
       {overlay === 'workspaces' && (
         <WorkspaceSwitcher
           workspaces={workspaces.map((w) => ({ id: w.id, name: w.name, color: w.color }))}
