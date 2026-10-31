@@ -9,12 +9,14 @@ use std::{
 use portable_pty::{Child, CommandBuilder, MasterPty, PtySize, native_pty_system};
 
 const ZSHENV: &str = include_str!("../shell/zshenv");
+const ZSHPROFILE: &str = include_str!("../shell/zprofile");
 const ZSHRC: &str = include_str!("../shell/zshrc");
 
 fn shell_integration_dir() -> anyhow::Result<PathBuf> {
     let dir = std::env::temp_dir().join("nara-shell-integration");
     std::fs::create_dir_all(&dir)?;
     std::fs::write(dir.join(".zshenv"), ZSHENV)?;
+    std::fs::write(dir.join(".zprofile"), ZSHPROFILE)?;
     std::fs::write(dir.join(".zshrc"), ZSHRC)?;
     Ok(dir)
 }
@@ -39,6 +41,20 @@ impl PtySession {
             .unwrap_or_default();
 
         let mut cmd = CommandBuilder::new("zsh");
+
+        // a login shell, like Terminal and iTerm start: it reads /etc/zprofile (which sets up
+        // PATH with path_helper) and the user's .zprofile (often where Homebrew's PATH lives)
+        cmd.arg("-l");
+
+        // an app opened from Finder or the Dock inherits almost no environment, so describe
+        // the terminal ourselves; without these zsh can't measure the prompt and redraws
+        // what you type in the wrong place
+        cmd.env("TERM", "xterm-256color");
+        cmd.env("COLORTERM", "truecolor");
+        cmd.env("TERM_PROGRAM", "Rook");
+        if std::env::var_os("LANG").is_none() {
+            cmd.env("LANG", "en_US.UTF-8");
+        }
 
         cmd.env("NARA_USER_ZDOTDIR", user_zdotdir);
         cmd.env("ZDOTDIR", shell_integration_dir()?);

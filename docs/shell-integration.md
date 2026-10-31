@@ -11,11 +11,13 @@ Rook never edits your `~/.zshrc`. Instead, `pty.rs` starts zsh with two environm
 | `ZDOTDIR` | a temp folder holding Rook's own `.zshenv` and `.zshrc` |
 | `NARA_USER_ZDOTDIR` | where your real config lives (your `ZDOTDIR`, or `$HOME`) |
 
-zsh reads its startup files from `ZDOTDIR`, so it reads Rook's. Those files:
+zsh starts as a **login shell** (`zsh -l`), like in Terminal and iTerm2, and reads its startup files from `ZDOTDIR`, so it reads Rook's. Those files:
 
-1. load your real `.zshenv` and `.zshrc`, so your prompt, theme and aliases work as usual;
+1. load your real `.zshenv`, `.zprofile` and `.zshrc`, so your `PATH`, prompt, theme and aliases work as usual;
 2. put `ZDOTDIR` back to your real folder;
 3. add Rook's hooks.
+
+An app opened from Finder or the Dock inherits almost no environment, so `pty.rs` also sets `TERM=xterm-256color`, `COLORTERM=truecolor`, `TERM_PROGRAM=Rook`, and `LANG=en_US.UTF-8` when no locale is set. Without them zsh can't measure the prompt and redraws typed text in the wrong place.
 
 The scripts live in `src-tauri/shell/` and are compiled into the app with `include_str!`, then written to the temp folder each time a pane starts.
 
