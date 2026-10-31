@@ -40,7 +40,7 @@ const PaneLayout = ({ root, active, focusedId, fontSize, onFocus, onPaneExit }: 
       {[...panes].map(([paneId, rect]) => (
         <div
           key={paneId}
-          className="absolute"
+          className="absolute px-3 py-2" // keeps the text off the dividers
           style={{ left: rect.x, top: rect.y, width: rect.width, height: rect.height }}
           onMouseDown={() => onFocus(paneId)}
         >
