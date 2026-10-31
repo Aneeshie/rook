@@ -58,11 +58,18 @@ Most terminals either do too little or put everything on screen at once. Rook ke
 
 Download **[Rook_0.1.1_aarch64.dmg](https://github.com/Aneeshie/rook/releases/download/v0.1.1/Rook_0.1.1_aarch64.dmg)** (Apple silicon), open it, and drag **Rook** into **Applications**. Other versions are on the [Releases](https://github.com/Aneeshie/rook/releases) page.
 
-Rook isn't notarized by Apple yet, so the first launch is blocked by Gatekeeper. Right-click **Rook** in Applications and choose **Open**, or clear the quarantine flag once:
+Rook isn't notarized by Apple yet, so macOS blocks the first launch with a warning that it can't verify the app. To open it anyway:
+
+1. Open **Rook** from Applications once, and dismiss the warning.
+2. Go to **System Settings → Privacy & Security**, scroll down, and click **Open Anyway** next to the message about Rook.
+
+Or clear the quarantine flag from a terminal, which skips the warning entirely:
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/Rook.app
 ```
+
+Copy Rook into Applications before opening it; don't run it from the disk image.
 
 ### Build from source
 
