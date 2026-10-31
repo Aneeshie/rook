@@ -52,6 +52,19 @@ Most terminals either do too little or put everything on screen at once. Rook ke
 - **Separate sizes** for the terminal and the interface, like an editor's buffer and UI fonts.
 - Changes apply live, to every open terminal, without restarting a shell.
 
+## Footprint
+
+Rook is a **2.5 MB download** and **4.6 MB installed**, because it uses the web engine built into macOS instead of bundling its own.
+
+| | Installed size | Memory, one window and one shell |
+|---|---|---|
+| **Rook** 0.1.4 | **4.6 MB** | ~167 MB |
+| Terminal.app | 3.5 MB (built in) | ~53 MB |
+| iTerm2 | 194 MB | ~159 MB |
+| Ghostty | 62 MB | ~240–300 MB |
+
+<sub>Measured on an Apple silicon Mac with macOS's `footprint` tool (the figure Activity Monitor shows as Memory), with each app freshly opened. Totals include each app's helper processes, but not the shell itself. For Rook that means its WebKit processes, which Activity Monitor lists separately from Rook. Numbers vary with what's on screen.</sub>
+
 ## Installation
 
 ### Download
