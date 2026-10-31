@@ -2,10 +2,17 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { FitAddon } from '@xterm/addon-fit';
 import { Terminal } from '@xterm/xterm';
-import type { IDisposable } from '@xterm/xterm';
+import type { IDisposable, IMarker } from '@xterm/xterm';
 import { useEffect, useRef } from 'react'
 import { matchAction } from '../keybindings';
 
+const FAILED_COLOR = '#f47067';
+const FAILED_TINT = 'rgba(244, 112, 103, 0.07)';
+const FAILED_ACCENT = 'rgba(244, 112, 103, 0.7)';
+const FAILED_BADGE = 'rgba(244, 112, 103, 0.15)';
+
+
+export type CommandStatus = | { state: 'running' } | { state: 'done', exitCode: number };
 type TerminalOutput = {
   terminal_id: string;
   data: number[];
@@ -25,9 +32,11 @@ type TerminalViewProps = {
   fontSize: number;
   onExit: () => void;
   onCwdChange: (cwd: string) => void;
+  onBranchChange: (branch: string) => void;
+  onCommandStatus: (status: CommandStatus) => void;
 }
 
-const TerminalView = ({ active, fontSize, onExit, onCwdChange }: TerminalViewProps) => {
+const TerminalView = ({ active, fontSize, onExit, onCwdChange, onBranchChange, onCommandStatus }: TerminalViewProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const onExitRef = useRef(onExit);
   onExitRef.current = onExit;
@@ -38,6 +47,12 @@ const TerminalView = ({ active, fontSize, onExit, onCwdChange }: TerminalViewPro
 
   const onCwdChangeRef = useRef(onCwdChange);
   onCwdChangeRef.current = onCwdChange
+
+  const onBranchChangeRef = useRef(onBranchChange)
+  onBranchChangeRef.current = onBranchChange
+
+  const onCommandStatusRef = useRef(onCommandStatus);
+  onCommandStatusRef.current = onCommandStatus
 
   const terminalRef = useRef<Terminal | null>(null);
 
@@ -56,6 +71,7 @@ const TerminalView = ({ active, fontSize, onExit, onCwdChange }: TerminalViewPro
     let inputSubscription: IDisposable | undefined;
     let pendingOutput: TerminalOutput[] = [];
     let cancelled = false;
+    let commandStart: IMarker | undefined;
 
     // Effect-local on purpose: a shared ref could be overwritten by a later
     // effect run (e.g. StrictMode remount) and cause the wrong session to close.
@@ -70,6 +86,8 @@ const TerminalView = ({ active, fontSize, onExit, onCwdChange }: TerminalViewPro
         fontFamily: 'ui-monospace, Menlo, monospace',
         cursorBlink: true,
         theme: { background: '#0b0d12', foreground: '#c9d1d9', cursor: '#c9d1d9' },
+        // registerDecoration is still "proposed" API and throws without this
+        allowProposedApi: true,
       });
       const fitAddon = new FitAddon();
 
@@ -94,6 +112,82 @@ const TerminalView = ({ active, fontSize, onExit, onCwdChange }: TerminalViewPro
       }
       return true;
     })
+
+    terminal.parser.registerOscHandler(7777, (data) => {
+      if (data.startsWith('branch=')) {
+        onBranchChangeRef.current(data.slice('branch='.length))
+      }
+
+      return true
+    })
+
+    const markFailedCommand = (start: IMarker, exitCode: number) => {
+      const buffer = terminal.buffer.active;
+      const cursorLine = buffer.baseY + buffer.cursorY;
+
+      const endLine = cursorLine + (buffer.cursorX > 0 ? 1 : 0);
+
+      // the block starts at the command line (the line above the output), so it covers command + output
+      const commandLine = terminal.registerMarker(start.line - 1 - cursorLine);
+      const height = endLine - commandLine.line;
+      start.dispose(); // commandLine marks the block from here on
+
+      // layer 'bottom' draws behind the text, so the tint never dims what's written on top
+      const block = terminal.registerDecoration({
+        marker: commandLine,
+        width: terminal.cols,
+        height,
+        layer: 'bottom',
+      });
+      block?.onRender((element) => {
+        element.style.background = FAILED_TINT;
+        element.style.boxShadow = `inset 3px 0 0 ${FAILED_ACCENT}`; // a left accent bar that takes no space
+        element.style.borderRadius = '4px';
+        element.style.pointerEvents = 'none'; // don't block selecting the text underneath
+      });
+
+      const label = `✗ exit ${exitCode}`;
+      const badge = terminal.registerDecoration({
+        marker: commandLine,
+        anchor: 'right',
+        width: label.length + 2,
+      });
+      badge?.onRender((element) => {
+        element.textContent = label;
+        element.style.right = '0'; // anchor: 'right' alone doesn't place it without an x offset
+        element.style.fontFamily = 'ui-monospace, Menlo, monospace';
+        element.style.fontSize = `${Math.max((terminal.options.fontSize ?? 14) - 2, 10)}px`;
+        element.style.color = FAILED_COLOR;
+        element.style.background = FAILED_BADGE;
+        element.style.borderRadius = '4px';
+        element.style.textAlign = 'center';
+        element.style.pointerEvents = 'none';
+      });
+    }
+
+    terminal.parser.registerOscHandler(133, (data) => {
+      const [kind, exitCode] = data.split(';');
+
+      if (kind === 'C') {
+        commandStart?.dispose();
+        commandStart = terminal.registerMarker(0);
+        onCommandStatusRef.current({ state: 'running' });
+      } else if (kind === 'D') {
+        const code = Number(exitCode);
+        onCommandStatusRef.current({ state: 'done', exitCode: code });
+
+
+        if (commandStart && code !== 0 && code !== 130) {
+          markFailedCommand(commandStart, code);
+        } else {
+          commandStart?.dispose();
+        }
+        commandStart = undefined;
+      }
+
+      return true;
+    });
+
 
     const resizePty = () => {
       const id = sessionId;
@@ -173,6 +267,7 @@ const TerminalView = ({ active, fontSize, onExit, onCwdChange }: TerminalViewPro
     };
 
     const setup = async () => {
+
       try {
         //register the listener first, before session creation.
         const stopListening = await listen<TerminalOutput>("terminal-output", (event) => {

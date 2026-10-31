@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { computeLayout, Divider, PaneNode, resizeDivider } from "../layout/paneTree"
-import TerminalView from "./TerminalView";
+import TerminalView, { CommandStatus } from "./TerminalView";
 
 // extra invisible width on each side of a divider, so the 4px line is easy to grab
 const DIVIDER_GRAB = 3;
@@ -15,6 +15,8 @@ type PaneLayoutProps = {
   onPaneExit: (paneId: string) => void;
   onRootChange: (root: PaneNode) => void;
   onPaneCwd: (paneId: string, cwd: string) => void;
+  onPaneBranch: (paneId: string, branch: string) => void;
+  onPaneCommandStatus: (paneId: string, status: CommandStatus) => void;
 }
 
 type Drag = {
@@ -23,7 +25,7 @@ type Drag = {
   startPosition: number; // pointer x (row) or y (column) when the drag began
 };
 
-const PaneLayout = ({ root, active, focusedId, fontSize, onFocus, onPaneExit, onRootChange, onPaneCwd }: PaneLayoutProps) => {
+const PaneLayout = ({ root, active, focusedId, fontSize, onFocus, onPaneExit, onRootChange, onPaneCwd, onPaneBranch, onPaneCommandStatus }: PaneLayoutProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 })
   const dragRef = useRef<Drag | null>(null);
@@ -96,6 +98,8 @@ const PaneLayout = ({ root, active, focusedId, fontSize, onFocus, onPaneExit, on
             fontSize={fontSize}
             onExit={() => onPaneExit(paneId)}
             onCwdChange={(cwd) => onPaneCwd(paneId, cwd)}
+            onBranchChange={(branch) => onPaneBranch(paneId, branch)}
+            onCommandStatus={(status) => onPaneCommandStatus(paneId, status)}
           />
         </div>
       ))}

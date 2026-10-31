@@ -13,6 +13,7 @@ import {
 } from "./layout/paneTree";
 import PaneLayout from "./components/PaneLayout";
 import { matchAction } from "./keybindings";
+import { CommandStatus } from "./components/TerminalView";
 
 const DEFAULT_FONT_SIZE = 14;
 const MIN_FONT_SIZE = 10;
@@ -23,6 +24,8 @@ type Tab = {
   root: PaneNode;
   focusedId: string;
   cwds: Record<string, string>; // paneId -> that pane's current dir
+  branches: Record<string, string>;// paneId -> that pane's git branch ('' outside a repo)
+  statuses: Record<string, CommandStatus>; // paneId -> is it running or how did the last command end
 };
 
 const createTab = (): Tab => {
@@ -31,7 +34,9 @@ const createTab = (): Tab => {
     id: crypto.randomUUID(),
     root: { kind: 'leaf', id: paneId },
     focusedId: paneId,
-    cwds: {}
+    cwds: {},
+    branches: {},
+    statuses: {},
   };
 }
 
@@ -98,6 +103,14 @@ function App() {
 
   const setPaneCwd = (tabId: string, paneId: string, cwd: string) => {
     updateTab(tabId, (tab) => ({ ...tab, cwds: { ...tab.cwds, [paneId]: cwd } }));
+  };
+
+  const setPaneBranch = (tabId: string, paneId: string, branch: string) => {
+    updateTab(tabId, (tab) => ({ ...tab, branches: { ...tab.branches, [paneId]: branch } }));
+  };
+
+  const setPaneCommandStatus = (tabId: string, paneId: string, status: CommandStatus) => {
+    updateTab(tabId, (tab) => ({ ...tab, statuses: { ...tab.statuses, [paneId]: status } }));
   };
 
   const closeTab = (id: string) => {
@@ -187,7 +200,8 @@ function App() {
   }, [tabs, activeId]);
 
   const activeTab = tabs.find((tab) => tab.id === activeId);
-
+  const activeBranch = activeTab ? activeTab.branches[activeTab.focusedId] : '';
+  const activeStatus = activeTab ? activeTab.statuses[activeTab.focusedId] : undefined;
   return (
     <main className="flex h-dvh w-screen flex-col overflow-hidden bg-[#0b0d12] font-mono text-neutral-300">
       {/* Overlay title bar: the native traffic lights sit on top of this header (hence the left padding). */}
@@ -237,6 +251,8 @@ function App() {
               onPaneExit={(paneId) => closePaneInTab(tab.id, paneId)}
               onRootChange={(root) => setRoot(tab.id, root)}
               onPaneCwd={(paneId, cwd) => setPaneCwd(tab.id, paneId, cwd)}
+              onPaneCommandStatus={(paneId, status) => setPaneCommandStatus(tab.id, paneId, status)}
+              onPaneBranch={(paneId, branch) => setPaneBranch(tab.id, paneId, branch)}
             />
           </div>
         ))}
@@ -246,6 +262,11 @@ function App() {
         <span className="flex h-full items-center bg-[#e5b05a] px-3 font-bold text-black">TERM</span>
         <span className="flex items-center gap-2 text-neutral-300">
           <span className="size-2 rounded-full bg-[#e5b05a]" />{activeTab ? tabTitle(activeTab) : ''}
+          {activeBranch && <span className="text-[#6ea8fe]">{activeBranch}</span>}
+          {activeStatus?.state === 'running' && <span className="text-[#e5b05a]">running…</span>}
+          {activeStatus?.state === 'done' && activeStatus.exitCode !== 0 && (
+            <span className="text-[#f47067]">exit {activeStatus.exitCode}</span>
+          )}
         </span>
         <span className="ml-auto pr-4 text-neutral-500">
           {tabs.length} {tabs.length === 1 ? 'tab' : 'tabs'}

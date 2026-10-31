@@ -10,3 +10,31 @@ fi
 # Our addition: before every prompt, announce the current directory (OSC 7)
 _nara_report_cwd() { printf '\e]7;file://%s%s\a' "$HOST" "$PWD"; }
 precmd_functions+=(_nara_report_cwd)
+
+# before every prompt, announce the git branch (empty when we're not inside a repo)
+_nara_report_branch() {
+  local branch
+  branch=$(git branch --show-current 2>/dev/null)
+  printf '\e]7777;branch=%s\a' "$branch"
+}
+precmd_functions+=(_nara_report_branch)
+
+# command boundaries (OSC 133): C = command starting, D;<code> = finished, A = new prompt
+_nara_command_running=0
+
+_nara_preexec() {
+  _nara_command_running=1
+  printf '\e]133;C\a'
+}
+
+_nara_precmd() {
+  local exit_code=$?   # must be the very first line, anything before it would overwrite $?
+  if (( _nara_command_running )); then
+    printf '\e]133;D;%s\a' "$exit_code"
+    _nara_command_running=0
+  fi
+  printf '\e]133;A\a'
+}
+
+preexec_functions+=(_nara_preexec)
+precmd_functions=(_nara_precmd $precmd_functions)
