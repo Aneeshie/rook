@@ -4,7 +4,7 @@
 
 # Rook
 
-**A minimal, keyboard-driven terminal for macOS.**
+**A minimal, keyboard-driven terminal Emulator for macOS.**
 
 Splits, tabs and workspaces that stay out of your way, with just enough help from your shell.
 
