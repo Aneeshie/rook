@@ -259,6 +259,7 @@ function App() {
               active={tab.id === activeId}
               focusedId={tab.focusedId}
               fontSize={fontSize}
+              refocus={0}
               onFocus={(paneId) => focusPane(tab.id, paneId)}
               onPaneExit={(paneId) => closePaneInTab(tab.id, paneId)}
               onRootChange={(root) => setRoot(tab.id, root)}
