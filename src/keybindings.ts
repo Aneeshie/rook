@@ -10,11 +10,13 @@ export type Action =
   | { type: 'fontSize'; change: 'increase' | 'decrease' | 'reset' }
   | { type: 'shortcuts' }
   | { type: 'workspaces' }
+  | { type: 'settings' }
   | { type: 'goToWorkspace'; number: number }; // 1–9
 
 // what the ⌘/ sheet lists; keep in sync with matchAction below
 export const SHORTCUTS: { keys: string; label: string }[] = [
   { keys: '⌘E', label: 'Workspaces' },
+  { keys: '⌘,', label: 'Settings' },
   { keys: '⌘⌥1–9', label: 'Go to workspace' },
   { keys: '⌘T', label: 'New tab' },
   { keys: '⌘1–9', label: 'Go to tab' },
@@ -44,6 +46,7 @@ export function matchAction(event: KeyboardEvent): Action | null {
   if (onlyMeta && event.code === 'KeyT') return { type: 'newTab' };
   if (onlyMeta && event.code === 'Slash') return { type: 'shortcuts' };
   if (onlyMeta && event.code === 'KeyE') return { type: 'workspaces' };
+  if (onlyMeta && event.code === 'Comma') return { type: 'settings' };
 
   // ⌘⌥1 … ⌘⌥9
   if (event.altKey && !event.ctrlKey && !event.shiftKey && /^Digit[1-9]$/.test(event.code)) {

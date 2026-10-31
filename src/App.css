@@ -1,5 +1,31 @@
 @import "tailwindcss";
 
+/* the active theme and settings write the --ui-* variables (see theme.ts and App.tsx);
+   these turn them into Tailwind classes like bg-bg, text-fg, text-muted, text-ui */
 @theme {
-  --font-mono: 'JetBrains Mono Variable', ui-monospace, Menlo, monospace;
+  --font-mono: var(--ui-font, 'JetBrains Mono Variable', ui-monospace, Menlo, monospace);
+
+  --color-bg: var(--ui-bg, #0b0d12);
+  --color-surface: var(--ui-surface, #12151c);
+  --color-fg: var(--ui-fg, #e6e8eb);
+  --color-soft: var(--ui-soft, #a3a8b0);
+  --color-muted: var(--ui-muted, #737880);
+  --color-faint: var(--ui-faint, #4b5058);
+  --color-accent: var(--ui-accent, #e5b05a);
+  --color-danger: var(--ui-danger, #f47067);
+  --color-info: var(--ui-info, #6ea8fe);
+
+  /* the interface font size; -sm is for the quietest labels */
+  --text-ui: var(--ui-size, 13px);
+  --text-ui-sm: calc(var(--ui-size, 13px) - 2px);
+}
+
+body {
+  background: var(--ui-bg, #0b0d12);
+}
+
+/* thin scrollbars in the theme's colors instead of the browser's default white */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--ui-fg, #e6e8eb) 15%, transparent) transparent;
 }

@@ -90,7 +90,7 @@ const WorkspaceSwitcher = ({
       onMouseDown={onClose}
     >
       <div
-        className="w-96 overflow-hidden rounded-xl border border-white/5 bg-[#12151c] shadow-2xl shadow-black/50"
+        className="w-96 overflow-hidden rounded-xl border border-fg/5 bg-surface shadow-2xl shadow-black/50"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <input
@@ -101,22 +101,22 @@ const WorkspaceSwitcher = ({
           onKeyDown={onKeyDown}
           placeholder="Switch or create workspace…"
           spellCheck={false}
-          className="w-full border-b border-white/5 bg-transparent px-4 py-3 text-[13px] text-neutral-100 outline-none placeholder:text-neutral-600"
+          className="w-full border-b border-fg/5 bg-transparent px-4 py-3 text-ui text-fg outline-none placeholder:text-faint"
         />
 
         <div className="max-h-72 overflow-y-auto p-1.5">
           {items.map((item, index) => {
             const highlighted = index === selected;
-            const rowClass = `group flex h-9 cursor-pointer items-center gap-3 rounded-md px-3 text-[13px] ${
-              highlighted ? 'bg-white/[0.06] text-neutral-100' : 'text-neutral-400'
+            const rowClass = `group flex h-9 cursor-pointer items-center gap-3 rounded-md px-3 text-ui ${
+              highlighted ? 'bg-fg/[0.06] text-fg' : 'text-soft'
             }`;
 
             if (item.kind === 'create') {
               return (
                 <div key="create" className={rowClass} onMouseEnter={() => setSelected(index)} onClick={() => choose(item)}>
-                  <Plus size={13} className="text-neutral-500" />
+                  <Plus size={13} className="text-muted" />
                   <span>
-                    Create <span className="text-neutral-100">{item.name}</span>
+                    Create <span className="text-fg">{item.name}</span>
                   </span>
                 </div>
               );
@@ -151,7 +151,7 @@ const WorkspaceSwitcher = ({
                       }
                     }}
                     spellCheck={false}
-                    className="min-w-0 flex-1 bg-transparent text-neutral-100 outline-none"
+                    className="min-w-0 flex-1 bg-transparent text-fg outline-none"
                   />
                 ) : (
                   <span className="min-w-0 flex-1 truncate">{workspace.name}</span>
@@ -166,7 +166,7 @@ const WorkspaceSwitcher = ({
                       event.stopPropagation();
                       startRename(workspace);
                     }}
-                    className="cursor-pointer rounded p-1 text-neutral-500 hover:bg-white/5 hover:text-neutral-200"
+                    className="cursor-pointer rounded p-1 text-muted hover:bg-fg/5 hover:text-fg"
                   >
                     <Pencil size={12} />
                   </button>
@@ -181,8 +181,8 @@ const WorkspaceSwitcher = ({
                         else setConfirmDeleteId(workspace.id);
                       }}
                       onMouseLeave={() => setConfirmDeleteId(null)}
-                      className={`cursor-pointer rounded p-1 hover:bg-white/5 ${
-                        confirmDeleteId === workspace.id ? 'text-[#f47067]' : 'text-neutral-500 hover:text-neutral-200'
+                      className={`cursor-pointer rounded p-1 hover:bg-fg/5 ${
+                        confirmDeleteId === workspace.id ? 'text-danger' : 'text-muted hover:text-fg'
                       }`}
                     >
                       {confirmDeleteId === workspace.id ? <Check size={12} /> : <Trash2 size={12} />}
@@ -190,7 +190,7 @@ const WorkspaceSwitcher = ({
                   )}
                 </span>
 
-                <span className="w-14 shrink-0 text-right text-[11px] text-neutral-600 group-hover:hidden">
+                <span className="w-14 shrink-0 text-right text-ui-sm text-faint group-hover:hidden">
                   {isActive ? 'current' : position <= 9 ? `⌘⌥${position}` : ''}
                 </span>
               </div>

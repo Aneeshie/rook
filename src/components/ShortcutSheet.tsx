@@ -21,13 +21,13 @@ const ShortcutSheet = ({ onClose }: ShortcutSheetProps) => {
       onMouseDown={onClose}
     >
       <div
-        className="w-80 rounded-xl border border-white/5 bg-[#12151c] p-2 shadow-2xl shadow-black/50"
+        className="w-80 rounded-xl border border-fg/5 bg-surface p-2 shadow-2xl shadow-black/50"
         onMouseDown={(event) => event.stopPropagation()}
       >
         {SHORTCUTS.map(({ keys, label }) => (
-          <div key={label} className="flex items-center justify-between rounded-md px-3 py-2 text-[13px]">
-            <span className="text-neutral-400">{label}</span>
-            <kbd className="font-mono text-xs text-neutral-200">{keys}</kbd>
+          <div key={label} className="flex items-center justify-between rounded-md px-3 py-2 text-ui">
+            <span className="text-soft">{label}</span>
+            <kbd className="font-mono text-xs text-fg">{keys}</kbd>
           </div>
         ))}
       </div>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
+import type { ITheme } from "@xterm/xterm";
 import { computeLayout, Divider, PaneNode, resizeDivider } from "../layout/paneTree"
 import TerminalView, { CommandStatus } from "./TerminalView";
 
@@ -22,6 +23,8 @@ type PaneLayoutProps = {
   focusedId: string;
   fontSize: number;
   refocus: number;
+  fontFamily: string;
+  theme: ITheme;
   startCwds: Record<string, string | undefined>; // paneId → folder its shell should start in
   onFocus: (paneId: string) => void;
   onPaneExit: (paneId: string) => void;
@@ -35,7 +38,7 @@ type Drag = {
   startPosition: number; // pointer x (row) or y (column) when the drag began
 };
 
-const PaneLayout = ({ root, active, focusedId, fontSize, refocus, startCwds, onFocus, onPaneExit, onRootChange, onPaneInfo }: PaneLayoutProps) => {
+const PaneLayout = ({ root, active, focusedId, fontSize, refocus, fontFamily, theme, startCwds, onFocus, onPaneExit, onRootChange, onPaneInfo }: PaneLayoutProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 })
   const dragRef = useRef<Drag | null>(null);
@@ -109,6 +112,8 @@ const PaneLayout = ({ root, active, focusedId, fontSize, refocus, startCwds, onF
             <TerminalView
               active={active && focused}
               refocus={refocus}
+              fontFamily={fontFamily}
+              theme={theme}
               startCwd={startCwds[paneId]}
               fontSize={fontSize}
               onExit={() => onPaneExit(paneId)}
@@ -153,7 +158,7 @@ const PaneLayout = ({ root, active, focusedId, fontSize, refocus, startCwds, onF
           >
             <div
               className={`absolute transition-colors ${
-                dragging === key ? 'bg-[#e5b05a]' : 'bg-white/[0.06] group-hover:bg-white/20'
+                dragging === key ? 'bg-accent' : 'bg-fg/[0.06] group-hover:bg-fg/20'
               }`}
               // a hairline in the middle of the gap; the gap itself stays as breathing room
               style={
