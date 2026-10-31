@@ -72,10 +72,58 @@ const tabTitle = (tab: Tab) => {
 
 const isRunning = (tab: Tab) => Object.values(tab.panes).some((pane) => pane.status?.state === 'running');
 
+// what survives a restart: workspaces, tabs, splits and each pane's folder. Running status,
+// branch and size aren't saved, the shells report those again as soon as they start
+const STORAGE_KEY = 'nara:session';
+
+type SavedSession = {
+  workspaces: Workspace[];
+  activeWorkspaceId: string;
+  fontSize: number;
+};
+
+const toSaved = (workspaces: Workspace[], activeWorkspaceId: string, fontSize: number): SavedSession => ({
+  workspaces: workspaces.map((w) => ({
+    ...w,
+    tabs: w.tabs.map((tab) => ({
+      ...tab,
+      panes: Object.fromEntries(Object.entries(tab.panes).map(([id, pane]) => [id, { cwd: pane.cwd }])),
+    })),
+  })),
+  activeWorkspaceId,
+  fontSize,
+});
+
+// a missing, broken or outdated save must never stop the app from starting
+const loadSaved = (): SavedSession | null => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+
+    const saved = JSON.parse(raw) as SavedSession;
+    const valid =
+      Array.isArray(saved.workspaces) &&
+      saved.workspaces.length > 0 &&
+      saved.workspaces.every((w) => Array.isArray(w.tabs) && w.tabs.length > 0);
+
+    return valid ? saved : null;
+  } catch {
+    return null;
+  }
+};
+
 function App() {
-  const [workspaces, setWorkspaces] = useState<Workspace[]>(() => [createWorkspace('default', WORKSPACE_COLORS[0])]);
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState(() => workspaces[0].id);
-  const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE);
+  // read once, on startup
+  const [saved] = useState(loadSaved);
+
+  const [workspaces, setWorkspaces] = useState<Workspace[]>(
+    () => saved?.workspaces ?? [createWorkspace('default', WORKSPACE_COLORS[0])],
+  );
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState(() =>
+    workspaces.some((w) => w.id === saved?.activeWorkspaceId) ? saved!.activeWorkspaceId : workspaces[0].id,
+  );
+  // shared by every terminal in every tab, so new tabs and panes start at the same size
+  const [fontSize, setFontSize] = useState(saved?.fontSize ?? DEFAULT_FONT_SIZE);
   const [overlay, setOverlay] = useState<'shortcuts' | 'workspaces' | null>(null);
   // bumped when an overlay closes, so the active terminal gets the keyboard back
   const [refocus, setRefocus] = useState(0);
@@ -234,6 +282,18 @@ function App() {
       return { ...t, root, focusedId, panes };
     });
   };
+
+  // save shortly after things settle, so a burst of cd's or a divider drag is one write, not hundreds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(toSaved(workspaces, activeWorkspaceId, fontSize)));
+      } catch {
+        // storage full or unavailable: keep working, just without saving
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [workspaces, activeWorkspaceId, fontSize]);
 
   // re-registered whenever tabs or activeId change, so the handler never sees stale state
   useEffect(() => {
