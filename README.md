@@ -14,7 +14,7 @@ Splits, tabs and workspaces that stay out of your way, with just enough help fro
 ![Rust](https://img.shields.io/badge/Rust-backend-CE422B.svg?logo=rust&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB.svg?logo=react&logoColor=black)
 
-**[Download for macOS (Apple silicon)](https://github.com/Aneeshie/rook/releases/download/v0.1.6/Rook_0.1.6_aarch64.dmg)**
+**[Download for macOS (Apple silicon)](https://github.com/Aneeshie/rook/releases/download/v0.1.7/Rook_0.1.7_aarch64.dmg)**
 
 [Features](#features) · [Installation](#installation) · [Usage](#usage) · [Configuration](#configuration) · [Documentation](#documentation) · [Contributing](#contributing)
 
@@ -73,7 +73,7 @@ Rook is a **2.5 MB download** and **4.6 MB installed**, because it uses the web 
 
 ### Download
 
-Download **[Rook_0.1.6_aarch64.dmg](https://github.com/Aneeshie/rook/releases/download/v0.1.6/Rook_0.1.6_aarch64.dmg)** (Apple silicon), open it, and drag **Rook** into **Applications**. Other versions are on the [Releases](https://github.com/Aneeshie/rook/releases) page.
+Download **[Rook_0.1.7_aarch64.dmg](https://github.com/Aneeshie/rook/releases/download/v0.1.7/Rook_0.1.7_aarch64.dmg)** (Apple silicon), open it, and drag **Rook** into **Applications**. Other versions are on the [Releases](https://github.com/Aneeshie/rook/releases) page.
 
 Rook isn't notarized by Apple yet, so macOS blocks the first launch with a warning that it can't verify the app. To open it anyway:
 
@@ -119,7 +119,7 @@ Build a disk image (`.dmg`) for your Mac's architecture:
 bun run build:dmg
 ```
 
-The image is written to `src-tauri/target/release/bundle/dmg/`, for example `Rook_0.1.6_aarch64.dmg` on Apple silicon. To also keep the `.app` (in `bundle/macos/`), build every bundle format instead with `bun run tauri build`.
+The image is written to `src-tauri/target/release/bundle/dmg/`, for example `Rook_0.1.7_aarch64.dmg` on Apple silicon. To also keep the `.app` (in `bundle/macos/`), build every bundle format instead with `bun run tauri build`.
 
 ## Usage
 
