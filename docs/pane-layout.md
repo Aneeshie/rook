@@ -54,7 +54,7 @@ A pane's area is the window's area times the product of the fractions on its pat
 |---|---|
 | `splitPane(root, id, newId, direction)` | If the pane's parent already cuts along that axis, the new pane becomes a sibling and the pane's fraction is halved. Otherwise the pane is wrapped in a new split `[pane, new]` at `[½, ½]`. |
 | `closePane(root, id)` | Removes the pane, gives its fraction to its neighbour, then normalizes. Returns `null` when the last pane closes. |
-| `resizeDivider(root, path, index, δ)` | Moves the divider between `children[index]` and `children[index + 1]`: `fᵢ += δ`, `fᵢ₊₁ −= δ`, clamped so neither drops below 10%. The sum stays 1. |
+| `resizeDivider(root, path, index, δ)` | Moves the divider between `children[index]` and `children[index + 1]`: `fᵢ += δ`, `fᵢ₊₁ −= δ`, clamped so neither drops below 10%; a pane already under 10% can grow but not shrink, so a fraction never goes negative. The sum stays 1. |
 | `resizePane(root, id, direction)` | Keyboard resize: walks up to the nearest split along that axis and moves the divider beside the pane. |
 | `findNeighbour(panes, id, direction)` | Focus movement, done on rectangles: the closest pane in that direction that overlaps on the other axis. |
 

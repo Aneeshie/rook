@@ -285,9 +285,9 @@ export function resizeDivider(
     const split = node as Split;
     const sizes = [...split.sizes];
 
-    // clamp δ into [−(f_index − m), f_index+1 − m]
-    const lower = -(sizes[index] - MIN_FRACTION);
-    const upper = sizes[index + 1] - MIN_FRACTION;
+    // clamp δ into [min(0, m − f_index), max(0, f_index+1 − m)]
+    const lower = Math.min(0, MIN_FRACTION - sizes[index]);
+    const upper = Math.max(0, sizes[index + 1] - MIN_FRACTION);
     const d = Math.max(lower, Math.min(delta, upper));
 
     sizes[index] += d;
