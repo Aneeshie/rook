@@ -18,6 +18,10 @@ Splits, tabs and workspaces that stay out of your way, with just enough help fro
 
 [Features](#features) · [Installation](#installation) · [Usage](#usage) · [Configuration](#configuration) · [Documentation](#documentation) · [Contributing](#contributing)
 
+
+https://github.com/user-attachments/assets/d06aceca-5bd6-46fa-b7a9-896061a46559
+
+
 </div>
 
 <!-- Add a screenshot here, e.g. ![Rook](docs/assets/screenshot.png) -->
