@@ -36,3 +36,7 @@ lto = true
 opt-level = 3
 panic = "abort"
 strip = true
+
+[[bench]]
+name = "pty"
+harness = false
