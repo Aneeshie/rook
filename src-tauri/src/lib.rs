@@ -76,6 +76,7 @@ pub fn run() {
     tauri::Builder::default()
         .manage(Mutex::new(SessionManager::new()))
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_macos_fps::init())
         .invoke_handler(tauri::generate_handler![
             create_session,
             write_to_session,
