@@ -1,0 +1,9 @@
+{
+  // type-checks the tests, which the app's tsconfig leaves out so Bun's globals stay out of app code
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["bun"]
+  },
+  "include": ["src"],
+  "exclude": []
+}

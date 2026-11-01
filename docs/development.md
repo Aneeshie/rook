@@ -71,16 +71,29 @@ bun run tauri icon src-tauri/app-icon.png
 
 ## Checking a change
 
-There's no automated test suite yet. Before opening a pull request:
+Before opening a pull request:
 
 ```bash
 bun run build
 ```
 
 ```bash
-cargo check --manifest-path src-tauri/Cargo.toml
+bun run test
 ```
+
+`bun run test` type-checks the tests, then runs both suites:
+
+- **Frontend** (`bun test`): tests sit next to the code as `*.test.ts`. They cover the pure modules: the pane tree in `src/layout/paneTree.ts` (including a randomized test that checks the invariants in [pane-layout.md](pane-layout.md) after every operation), shortcut matching in `keybindings.ts`, and settings loading in `settings.ts`. Test files are excluded from the app's `tsconfig.json` and type-checked with `tsconfig.test.json`, so Bun's types stay out of app code.
+- **Backend** (`cargo test`): `#[cfg(test)]` modules at the bottom of `session.rs` (combining queued output) and `pty.rs`. The PTY tests start a real zsh, so they need zsh installed.
 
 Then run `bun run tauri dev` and try what you changed: creating, splitting, resizing and closing panes, typing in them, switching tabs and workspaces, and restarting to check that the session restores.
 
-`src/layout/paneTree.ts` has no dependencies on React or Tauri, so it's the natural first place for unit tests.
+## CI and releases
+
+GitHub Actions runs `.github/workflows/ci.yml` on every pull request and every push to `main`: the build, both test suites, on macOS.
+
+To release:
+
+1. Bump the version in `package.json`, `src-tauri/Cargo.toml` and `src-tauri/tauri.conf.json` (and `Cargo.lock`, via `cargo check`), plus the download links in the README, then merge that to `main`.
+2. Publish a GitHub release for tag `vX.Y.Z` with your notes, for example `gh release create v0.1.7 --target main --notes-file notes.md`.
+3. `.github/workflows/release.yml` checks that the tag matches the app version, runs the tests, builds the DMG and attaches it to the release. It takes a few minutes after publishing.

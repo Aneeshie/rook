@@ -9,7 +9,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "build:dmg": "tauri build --bundles dmg"
+    "build:dmg": "tauri build --bundles dmg",
+    "test": "tsc -p tsconfig.test.json && bun test && cargo test --manifest-path src-tauri/Cargo.toml"
   },
   "dependencies": {
     "@fontsource-variable/fira-code": "^5.3.0",
@@ -28,11 +29,12 @@
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "@types/bun": "^1.4.4",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^6.0.2",
     "typescript": "~6.0.3",
-    "vite": "^8.0.16",
-    "@tauri-apps/cli": "^2"
+    "vite": "^8.0.16"
   }
 }

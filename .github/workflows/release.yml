@@ -1,0 +1,41 @@
+name: Release
+
+# publish a release on GitHub (tag vX.Y.Z, with notes) and this builds the DMG and attaches it
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  dmg:
+    runs-on: macos-latest # Apple silicon, so the image is Rook_X.Y.Z_aarch64.dmg
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Check the tag matches the app version
+        run: |
+          tag="${{ github.event.release.tag_name }}"
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          if [ "$tag" != "v$version" ]; then
+            echo "::error::tag $tag does not match tauri.conf.json version $version"
+            exit 1
+          fi
+
+      - uses: oven-sh/setup-bun@v2
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: bun install --frozen-lockfile
+      - run: bun test
+      - run: bun run build:dmg
+
+      - name: Attach the DMG to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" src-tauri/target/release/bundle/dmg/*.dmg --clobber

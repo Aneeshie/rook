@@ -1,6 +1,6 @@
 export type Axis = 'row' | 'column' // row = side by side (cuts along x-axis), column = stacked (cuts along y axis)
 
-export type Leaf = { kind: 'leaf', id: string } // a pane p: "stop cutting, this piece is a terminal"
+export type Leaf = { kind: 'leaf', id: string, from?: string } // a pane p: "stop cutting, this piece is a terminal"
 
 export type Split = {
   kind: 'split';
@@ -176,7 +176,7 @@ export function splitPane(
 
   const axis = axisOf(direction);
   const after = isAfter(direction);
-  const newLeaf: Leaf = { kind: 'leaf', id: newId };
+  const newLeaf: Leaf = { kind: 'leaf', id: newId, from: targetId };
 
   //case - 1 add a sibling because parent already cuts along this axis
   if (path.length > 0) {
@@ -256,7 +256,11 @@ export function closePane(root: PaneNode, id: string): PaneNode | null {
 
   const updated = updateAt(root, parentPath, (node) => {
     const parent = node as Split;
-    const neighbour = i > 0 ? i - 1 : 1; // previous sibling or the next one if we're first
+    const closing = parent.children[i];
+    const origin = closing.kind === 'leaf' && closing.from
+      ? parent.children.findIndex((child) => child.kind === 'leaf' && child.id === closing.from)
+      : -1;
+    const neighbour = origin !== -1 && Math.abs(origin - i) === 1 ? origin : i > 0 ? i - 1 : 1;
 
     const sizes = [...parent.sizes];
     sizes[neighbour] += sizes[i]; // fⱼ → fⱼ + fᵢ
@@ -285,9 +289,9 @@ export function resizeDivider(
     const split = node as Split;
     const sizes = [...split.sizes];
 
-    // clamp δ into [−(f_index − m), f_index+1 − m]
-    const lower = -(sizes[index] - MIN_FRACTION);
-    const upper = sizes[index + 1] - MIN_FRACTION;
+    // clamp δ into [min(0, m − f_index), max(0, f_index+1 − m)]
+    const lower = Math.min(0, MIN_FRACTION - sizes[index]);
+    const upper = Math.max(0, sizes[index + 1] - MIN_FRACTION);
     const d = Math.max(lower, Math.min(delta, upper));
 
     sizes[index] += d;

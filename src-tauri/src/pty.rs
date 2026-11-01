@@ -145,3 +145,111 @@ impl PtySession {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{Duration, Instant};
+
+    const SIZE: PtySize = PtySize {
+        rows: 24,
+        cols: 80,
+        pixel_width: 0,
+        pixel_height: 0,
+    };
+
+    fn wait_for(rx: &Receiver<Vec<u8>>, needle: &str) -> String {
+        let deadline = Instant::now() + Duration::from_secs(20);
+        let mut output = Vec::new();
+        while Instant::now() < deadline {
+            if let Ok(bytes) = rx.recv_timeout(Duration::from_millis(100)) {
+                output.extend_from_slice(&bytes);
+                let text = String::from_utf8_lossy(&output);
+                if text.contains(needle) {
+                    return text.into_owned();
+                }
+            }
+        }
+        panic!(
+            "never saw {needle:?}; got: {:?}",
+            String::from_utf8_lossy(&output)
+        );
+    }
+
+    #[test]
+    fn runs_a_command_and_returns_its_output() {
+        let (mut session, rx) = PtySession::new(SIZE, None).unwrap();
+
+        session.write_input(b"printf 'rook-%s\\n' ok\r").unwrap();
+        wait_for(&rx, "rook-ok");
+
+        session.close().unwrap();
+    }
+
+    #[test]
+    fn starts_in_the_requested_folder() {
+        let dir = std::env::temp_dir().canonicalize().unwrap();
+        let (mut session, rx) = PtySession::new(SIZE, Some(dir.display().to_string())).unwrap();
+
+        session.write_input(b"printf 'cwd=%s;\\n' \"$PWD\"\r").unwrap();
+        let output = wait_for(&rx, ";\r\n");
+        assert!(
+            output.contains(&format!("cwd={};", dir.display())),
+            "shell started elsewhere: {output:?}"
+        );
+
+        session.close().unwrap();
+    }
+
+    #[test]
+    fn a_missing_folder_falls_back_instead_of_failing() {
+        let (mut session, rx) =
+            PtySession::new(SIZE, Some("/no/such/folder/rook-test".into())).unwrap();
+
+        session.write_input(b"printf 'rook-%s\\n' alive\r").unwrap();
+        wait_for(&rx, "rook-alive");
+
+        session.close().unwrap();
+    }
+
+    #[test]
+    fn resize_reaches_the_shell() {
+        let (mut session, rx) = PtySession::new(SIZE, None).unwrap();
+
+        session.resize(40, 132).unwrap();
+        session.write_input(b"printf 'size=%s;\\n' \"$(stty size)\"\r").unwrap();
+        wait_for(&rx, "size=40 132;");
+
+        session.close().unwrap();
+    }
+
+    #[test]
+    fn describes_the_terminal_to_programs() {
+        let (mut session, rx) = PtySession::new(SIZE, None).unwrap();
+
+        session.write_input(b"printf 'env=%s,%s;\\n' \"$TERM\" \"$TERM_PROGRAM\"\r").unwrap();
+        wait_for(&rx, "env=xterm-256color,Rook;");
+
+        session.close().unwrap();
+    }
+
+    #[test]
+    fn close_ends_the_output_stream_quickly() {
+        let (mut session, rx) = PtySession::new(SIZE, None).unwrap();
+        session.write_input(b"printf 'rook-%s\\n' ready\r").unwrap();
+        wait_for(&rx, "rook-ready");
+
+        let start = Instant::now();
+        session.close().unwrap();
+        assert!(start.elapsed() < Duration::from_secs(2), "close() hung");
+
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            match rx.recv_timeout(Duration::from_millis(100)) {
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
+                _ if Instant::now() > deadline => panic!("output stream never ended"),
+                _ => {}
+            }
+        }
+    }
+}

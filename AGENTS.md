@@ -13,7 +13,7 @@ This repository is a desktop terminal app built with Tauri, React, and TypeScrip
 - `bun run tauri dev` launches the complete desktop app with the Rust backend; `bun run tauri build` packages it.
 - `cargo check --manifest-path src-tauri/Cargo.toml` checks the Rust backend.
 
-Run desktop commands with the Tauri prerequisites for your platform installed. There is no test script or test directory configured yet; when adding tests, document the command and keep tests alongside the code or in a clearly named test directory.
+Run desktop commands with the Tauri prerequisites for your platform installed. `bun run test` type-checks and runs the frontend tests (`bun test`, files named `*.test.ts` next to the code) and the Rust tests (`cargo test`, `#[cfg(test)]` modules in each file).
 
 ## Coding Style & Naming Conventions
 
@@ -21,7 +21,7 @@ Follow the existing TypeScript/React style: two-space indentation, semicolons, s
 
 ## Testing Guidelines
 
-Before submitting changes, run `bun run build` and `cargo check --manifest-path src-tauri/Cargo.toml`. For UI changes, also launch `bun run tauri dev` and manually check terminal creation, input/output, resizing, and session updates as applicable. Add focused automated tests when introducing logic that can be exercised independently.
+Before submitting changes, run `bun run build` and `bun run test`; CI runs both on every pull request. For UI changes, also launch `bun run tauri dev` and manually check terminal creation, input/output, resizing, and session updates as applicable. Add focused automated tests when introducing logic that can be exercised independently; keep such logic in pure functions (like `src/layout/paneTree.ts`) so it can be.
 
 ## Commit & Pull Request Guidelines
 
