@@ -12,8 +12,10 @@ See also `AGENTS.md` for style and commit conventions (Conventional Commit subje
 - `bun run build` — `tsc` typecheck + Vite production build.
 - `cargo check --manifest-path src-tauri/Cargo.toml` — check the Rust backend.
 - `bun run tauri build` — package the app.
+- `bun run test` — type-check the tests, then `bun test` (frontend, `*.test.ts` next to the code) and `cargo test` (backend; the PTY tests spawn a real zsh).
+- `bun test src/layout` — run one folder or file of frontend tests.
 
-There is no test suite or linter configured. Validate changes with `bun run build` and `cargo check`, and for UI changes manually exercise terminal creation, I/O, resizing, and tab close in `bun run tauri dev`.
+There is no linter configured. Validate changes with `bun run build` and `bun run test`, and for UI changes manually exercise terminal creation, I/O, resizing, and tab close in `bun run tauri dev`. Test files are excluded from `tsconfig.json` and type-checked by `tsconfig.test.json`. CI (`.github/workflows/ci.yml`) runs the same on macOS for every PR; publishing a GitHub release triggers `release.yml`, which builds the DMG and attaches it.
 
 ## Architecture
 
