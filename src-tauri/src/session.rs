@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, mpsc::Receiver},
 };
 
 use crate::pty::PtySession;
@@ -11,6 +11,19 @@ use tauri::{
 };
 
 type SharedSession = Arc<Mutex<PtySession>>;
+
+const MAX_MESSAGE: usize = 256 * 1024;
+
+// try_recv never waits, so typing gets no extra latency
+fn take_queued(mut bytes: Vec<u8>, rx: &Receiver<Vec<u8>>) -> Vec<u8> {
+    while bytes.len() < MAX_MESSAGE {
+        match rx.try_recv() {
+            Ok(more) => bytes.extend_from_slice(&more),
+            Err(_) => break,
+        }
+    }
+    bytes
+}
 
 pub struct SessionManager {
     sessions: HashMap<String, SharedSession>,
@@ -49,18 +62,8 @@ impl SessionManager {
         let terminal_id = id.clone();
 
         std::thread::spawn(move || {
-            while let Ok(mut bytes) = output_rx.recv() {
-                //under load, more chunks are already queued: send them as one message
-
-                // try_recv never waits, so typing no extra latency
-                while bytes.len() < 256 * 1024 {
-                    match output_rx.try_recv() {
-                        Ok(more) => bytes.extend_from_slice(&more),
-                        Err(_) => break,
-                    }
-                }
-
-                // raw bytes reach JS as an arraybuffer with no json in between
+            while let Ok(bytes) = output_rx.recv() {
+                let bytes = take_queued(bytes, &output_rx);
 
                 if let Err(error) = on_output.send(InvokeResponseBody::Raw(bytes)) {
                     eprintln!("Failed to send terminal output: {error}");
