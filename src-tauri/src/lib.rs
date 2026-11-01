@@ -2,7 +2,8 @@ use tauri::ipc::{Channel, InvokeResponseBody};
 
 use crate::session::SessionManager;
 use std::sync::Mutex;
-mod pty;
+#[doc(hidden)]
+pub mod pty;
 mod session;
 
 #[tauri::command]

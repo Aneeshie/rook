@@ -4,6 +4,6 @@
   "compilerOptions": {
     "types": ["bun"]
   },
-  "include": ["src"],
+  "include": ["src", "bench"],
   "exclude": []
 }

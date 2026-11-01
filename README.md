@@ -69,6 +69,31 @@ Rook is a **2.5 MB download** and **4.6 MB installed**, because it uses the web 
 
 <sub>Measured on an Apple silicon Mac with macOS's `footprint` tool (the figure Activity Monitor shows as Memory), with each app freshly opened. Totals include each app's helper processes, but not the shell itself. For Rook that means its WebKit processes, which Activity Monitor lists separately from Rook. Numbers vary with what's on screen.</sub>
 
+## Performance
+
+Terminals draw with the GPU (WebGL), at your display's full refresh rate, and each pane's output reaches it as raw bytes on its own channel. Typing never waits on output from other panes.
+
+| Benchmark | Result |
+|---|---|
+| Keystroke echo through the PTY | **~10 µs** |
+| Program output through the PTY | ~115–150 MB/s |
+| Parsing colored output, Unicode, nvim-style redraws | ~100–125 MB/s |
+| Parsing plain lines (`cat` of a big log) | ~40–47 MB/s |
+| Laying out 16 panes | ~1 µs |
+
+<sub>`bun run bench` on an Apple M4. The backend moves output about 3× faster than xterm.js can parse it, so parsing is the limit, and plain line output, which scrolls on every line, is the worst case. A keystroke's round trip through the PTY is a tiny fraction of one display frame.</sub>
+
+The benchmarks are reproducible: fixed, seeded inputs, pinned versions, and a comparison that tells real changes from noise. Measure a change before and after with:
+
+```bash
+bun run bench --save before
+```
+```bash
+bun run bench:compare bench/results/before.json bench/results/after.json
+```
+
+To compare Rook with other terminals end to end, rendering included, run `zsh bench/terminal.sh` inside each one. See [Benchmarks](docs/benchmarks.md).
+
 ## Installation
 
 ### Download
@@ -157,6 +182,7 @@ Adding a theme takes a single object in `src/theme.ts`; see [docs/configuration.
 | [Keybindings](docs/keybindings.md) | Every shortcut, and how to add one |
 | [Configuration](docs/configuration.md) | Themes, fonts and sizes, and adding your own |
 | [Development](docs/development.md) | Project structure, commands and conventions |
+| [Benchmarks](docs/benchmarks.md) | Measuring performance reproducibly, and comparing runs or terminals |
 
 ## How it works
 
@@ -182,17 +208,18 @@ Contributions are welcome. To propose a change:
 
 1. Fork the repository and create a branch.
 2. Make your change, following the conventions in [docs/development.md](docs/development.md).
-3. Check that it builds:
+3. Check that it builds and the tests pass. CI runs both on every pull request:
 
    ```bash
    bun run build
    ```
 
    ```bash
-   cargo check --manifest-path src-tauri/Cargo.toml
+   bun run test
    ```
 
-4. Try it in `bun run tauri dev`, then open a pull request describing what changed and how you tested it. Include a screenshot for visual changes.
+4. If the change could affect speed, compare `bun run bench` before and after (see [Benchmarks](docs/benchmarks.md)).
+5. Try it in `bun run tauri dev`, then open a pull request describing what changed and how you tested it. Include a screenshot for visual changes.
 
 Commit messages follow [Conventional Commits](https://www.conventionalcommits.org): `feat:`, `fix:`, `docs:`, `chore:`.
 
