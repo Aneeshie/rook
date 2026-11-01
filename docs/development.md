@@ -18,6 +18,8 @@
 | `bun run build` | Type-check and build the frontend only |
 | `bun run dev` | Frontend only, in a browser (no shells: Tauri commands aren't available there) |
 | `cargo check --manifest-path src-tauri/Cargo.toml` | Check the Rust backend |
+| `bun run test` | Type-check the tests and run the frontend and Rust tests |
+| `bun run bench` | Run the benchmarks; see [benchmarks.md](benchmarks.md) |
 
 `bun run tauri dev` rebuilds the Rust side when anything under `src-tauri/` changes, including the shell scripts in `src-tauri/shell/`, which are compiled into the binary.
 

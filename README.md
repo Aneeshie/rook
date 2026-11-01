@@ -157,6 +157,7 @@ Adding a theme takes a single object in `src/theme.ts`; see [docs/configuration.
 | [Keybindings](docs/keybindings.md) | Every shortcut, and how to add one |
 | [Configuration](docs/configuration.md) | Themes, fonts and sizes, and adding your own |
 | [Development](docs/development.md) | Project structure, commands and conventions |
+| [Benchmarks](docs/benchmarks.md) | Measuring performance reproducibly, and comparing runs or terminals |
 
 ## How it works
 
