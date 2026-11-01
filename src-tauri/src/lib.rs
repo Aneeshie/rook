@@ -1,3 +1,5 @@
+use tauri::ipc::{Channel, InvokeResponseBody};
+
 use crate::session::SessionManager;
 use std::sync::Mutex;
 mod pty;
@@ -27,11 +29,12 @@ fn create_session(
     rows: u16,
     cols: u16,
     cwd: Option<String>,
+    on_output: Channel<InvokeResponseBody>,
 ) -> Result<String, String> {
     let mut manager = state.lock().map_err(|e| e.to_string())?;
 
     manager
-        .create_session(app, rows, cols, cwd)
+        .create_session(app, rows, cols, cwd, on_output)
         .map_err(|e| e.to_string())
 }
 

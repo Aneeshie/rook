@@ -74,7 +74,7 @@ impl PtySession {
 
         let (tx, rx) = channel();
         let reader_thread = std::thread::spawn(move || {
-            let mut buffer = [0u8; 1024];
+            let mut buffer = [0u8; 64 * 1024];
 
             loop {
                 match reader.read(&mut buffer) {
