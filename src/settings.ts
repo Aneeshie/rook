@@ -1,10 +1,15 @@
 // user preferences, kept apart from the session (workspaces, tabs) because they outlive it:
 // clearing your workspaces shouldn't reset your theme
+//
+//
+export type GpuAcceleration = 'auto' | 'on' | 'off';
+
 export type Settings = {
   theme: string; // AppTheme id
   font: string; // FontOption id, used by the terminal and the UI
   terminalFontSize: number;
   uiFontSize: number;
+  gpuAcceleration: GpuAcceleration;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -12,6 +17,7 @@ export const DEFAULT_SETTINGS: Settings = {
   font: 'jetbrains-mono',
   terminalFontSize: 14,
   uiFontSize: 13,
+  gpuAcceleration: 'auto'
 };
 
 export const TERMINAL_FONT_SIZE = { min: 10, max: 32 };
