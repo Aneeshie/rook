@@ -4,12 +4,19 @@ import { Check, Minus, Plus, X } from 'lucide-react';
 import { FONTS, THEMES } from '../theme';
 import type { AppTheme } from '../theme';
 import { Settings, TERMINAL_FONT_SIZE, UI_FONT_SIZE } from '../settings';
+import type { GpuAcceleration } from '../settings';
 
 type SettingsPanelProps = {
   settings: Settings;
   onChange: (change: Partial<Settings>) => void;
   onClose: () => void;
 };
+
+const GPU_OPTIONS: { id: GpuAcceleration; name: string; hint: string }[] = [
+  { id: 'auto', name: 'Auto', hint: 'WebGL, falling back if this machine can’t run it' },
+  { id: 'on', name: 'On', hint: 'Always try WebGL' },
+  { id: 'off', name: 'Off', hint: 'Slower, but avoids GPU glitches' },
+];
 
 // every change applies immediately, so there's no save button: what you see is what you get
 const SettingsPanel = ({ settings, onChange, onClose }: SettingsPanelProps) => {
@@ -66,9 +73,8 @@ const SettingsPanel = ({ settings, onChange, onClose }: SettingsPanelProps) => {
                     type="button"
                     onClick={() => onChange({ font: font.id })}
                     style={{ fontFamily: font.family }}
-                    className={`flex h-12 cursor-pointer items-center gap-6 rounded-xl px-4 text-left transition-colors ${
-                      selected ? 'bg-fg/[0.06] text-fg' : 'text-soft hover:bg-fg/[0.03]'
-                    }`}
+                    className={`flex h-12 cursor-pointer items-center gap-6 rounded-xl px-4 text-left transition-colors ${selected ? 'bg-fg/[0.06] text-fg' : 'text-soft hover:bg-fg/[0.03]'
+                      }`}
                   >
                     <span className="w-44 shrink-0 text-ui">{font.name}</span>
                     {/* the characters that tell monospace fonts apart */}
@@ -97,6 +103,27 @@ const SettingsPanel = ({ settings, onChange, onClose }: SettingsPanelProps) => {
               />
             </div>
           </Section>
+
+          <Section title="GPU acceleration">
+            <div className="flex flex-col gap-1">
+              {GPU_OPTIONS.map((option) => {
+                const selected = option.id === settings.gpuAcceleration;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => onChange({ gpuAcceleration: option.id })}
+                    className={`flex h-12 cursor-pointer items-center gap-6 rounded-xl px-4 text-left transition-colors ${selected ? 'bg-fg/[0.06] text-fg' : 'text-soft hover:bg-fg/[0.03]'
+                      }`}
+                  >
+                    <span className="w-44 shrink-0 text-ui">{option.name}</span>
+                    <span className="flex-1 truncate text-ui-sm text-faint">{option.hint}</span>
+                    {selected && <Check size={13} className="shrink-0 text-accent" />}
+                  </button>
+                );
+              })}
+            </div>
+          </Section>
         </div>
       </div>
     </div>
@@ -119,9 +146,8 @@ const ThemeCard = ({ theme, selected, onSelect }: { theme: AppTheme; selected: b
     <button
       type="button"
       onClick={onSelect}
-      className={`cursor-pointer overflow-hidden rounded-2xl text-left ring-1 transition-all ${
-        selected ? 'ring-2 ring-accent' : 'ring-fg/[0.06] hover:ring-fg/20'
-      }`}
+      className={`cursor-pointer overflow-hidden rounded-2xl text-left ring-1 transition-all ${selected ? 'ring-2 ring-accent' : 'ring-fg/[0.06] hover:ring-fg/20'
+        }`}
     >
       <div className="flex flex-col gap-1 px-5 py-5 text-[11px] leading-5" style={{ background: t.background }}>
         <div>

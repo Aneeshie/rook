@@ -3,6 +3,7 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import type { ITheme } from "@xterm/xterm";
 import { computeLayout, Divider, PaneNode, resizeDivider } from "../layout/paneTree"
 import TerminalView, { CommandStatus } from "./TerminalView";
+import { GpuAcceleration } from "../settings";
 
 // extra invisible width on each side of a divider, so the 4px line is easy to grab
 const DIVIDER_GRAB = 3;
@@ -30,6 +31,7 @@ type PaneLayoutProps = {
   onPaneExit: (paneId: string) => void;
   onRootChange: (root: PaneNode) => void;
   onPaneInfo: (paneId: string, change: PaneInfo) => void;
+  gpuAcceleration: GpuAcceleration;
 }
 
 type Drag = {
@@ -38,7 +40,7 @@ type Drag = {
   startPosition: number; // pointer x (row) or y (column) when the drag began
 };
 
-const PaneLayout = ({ root, active, focusedId, fontSize, refocus, fontFamily, theme, startCwds, onFocus, onPaneExit, onRootChange, onPaneInfo }: PaneLayoutProps) => {
+const PaneLayout = ({ root, active, focusedId, fontSize, refocus, fontFamily, theme, startCwds, onFocus, onPaneExit, onRootChange, onPaneInfo, gpuAcceleration }: PaneLayoutProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 })
   const dragRef = useRef<Drag | null>(null);
@@ -105,12 +107,14 @@ const PaneLayout = ({ root, active, focusedId, fontSize, refocus, fontFamily, th
             key={paneId}
             className={`absolute px-3 py-2 transition-opacity duration-200 ${ // padding keeps the text off the dividers
               dimUnfocused && !focused ? 'opacity-45' : ''
-            }`}
+              }`}
             style={{ left: rect.x, top: rect.y, width: rect.width, height: rect.height }}
             onMouseDown={() => onFocus(paneId)}
           >
             <TerminalView
               active={active && focused}
+              visible={active}
+              gpuAcceleration={gpuAcceleration}
               refocus={refocus}
               fontFamily={fontFamily}
               theme={theme}
@@ -122,6 +126,7 @@ const PaneLayout = ({ root, active, focusedId, fontSize, refocus, fontFamily, th
               onCommandStatus={(status) => onPaneInfo(paneId, { status })}
               onCommandChange={(command) => onPaneInfo(paneId, { command })}
               onSizeChange={(cols, rows) => onPaneInfo(paneId, { cols, rows })}
+
             />
           </div>
         );
@@ -157,9 +162,8 @@ const PaneLayout = ({ root, active, focusedId, fontSize, refocus, fontFamily, th
             onPointerCancel={endDrag}
           >
             <div
-              className={`absolute transition-colors ${
-                dragging === key ? 'bg-accent' : 'bg-fg/[0.06] group-hover:bg-fg/20'
-              }`}
+              className={`absolute transition-colors ${dragging === key ? 'bg-accent' : 'bg-fg/[0.06] group-hover:bg-fg/20'
+                }`}
               // a hairline in the middle of the gap; the gap itself stays as breathing room
               style={
                 isRow

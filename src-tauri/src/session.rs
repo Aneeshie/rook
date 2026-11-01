@@ -5,7 +5,10 @@ use std::{
 
 use crate::pty::PtySession;
 use portable_pty::PtySize;
-use tauri::Emitter;
+use tauri::{
+    Emitter,
+    ipc::{Channel, InvokeResponseBody},
+};
 
 type SharedSession = Arc<Mutex<PtySession>>;
 
@@ -26,6 +29,7 @@ impl SessionManager {
         rows: u16,
         cols: u16,
         cwd: Option<String>,
+        on_output: Channel<InvokeResponseBody>,
     ) -> anyhow::Result<String> {
         let id = uuid::Uuid::new_v4().to_string();
 
@@ -45,15 +49,21 @@ impl SessionManager {
         let terminal_id = id.clone();
 
         std::thread::spawn(move || {
-            while let Ok(bytes) = output_rx.recv() {
-                //emit these to react...
-                let payload = serde_json::json!({
-                    "terminal_id": terminal_id,
-                    "data": bytes,
-                });
+            while let Ok(mut bytes) = output_rx.recv() {
+                //under load, more chunks are already queued: send them as one message
 
-                if let Err(error) = app.emit("terminal-output", payload) {
-                    eprintln!("Failed to emit terminal output: {error}");
+                // try_recv never waits, so typing no extra latency
+                while bytes.len() < 256 * 1024 {
+                    match output_rx.try_recv() {
+                        Ok(more) => bytes.extend_from_slice(&more),
+                        Err(_) => break,
+                    }
+                }
+
+                // raw bytes reach JS as an arraybuffer with no json in between
+
+                if let Err(error) = on_output.send(InvokeResponseBody::Raw(bytes)) {
+                    eprintln!("Failed to send terminal output: {error}");
                     break;
                 }
             }

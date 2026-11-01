@@ -437,6 +437,7 @@ function App() {
                   onPaneExit={(paneId) => closePaneInTab(tab.id, paneId)}
                   onRootChange={(root) => setRoot(tab.id, root)}
                   onPaneInfo={(paneId, change) => updatePaneInfo(tab.id, paneId, change)}
+                  gpuAcceleration={settings.gpuAcceleration}
                 />
               </div>
             );

@@ -1,23 +1,23 @@
-import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { FitAddon } from '@xterm/addon-fit';
+import { WebglAddon } from '@xterm/addon-webgl';
 import { Terminal } from '@xterm/xterm';
 import type { IDisposable, IMarker, ITheme } from '@xterm/xterm';
 import { useEffect, useRef } from 'react'
 import { matchAction } from '../keybindings';
+import { GpuAcceleration } from '../settings';
+import { Channel, invoke } from '@tauri-apps/api/core';
 
 // the failed-command block is drawn in the theme's red, at these strengths
 const FAILED_TINT = 7; // %
 const FAILED_ACCENT = 70;
 const FAILED_BADGE = 15;
 const withAlpha = (color: string, percent: number) => `color-mix(in srgb, ${color} ${percent}%, transparent)`;
+let webglUnsupported = false;
 
 
 export type CommandStatus = | { state: 'running' } | { state: 'done', exitCode: number };
-type TerminalOutput = {
-  terminal_id: string;
-  data: number[];
-}
+
 
 const closeSession = (id: string) =>
   invoke("remove_session", { id }).catch((error) => {
@@ -41,6 +41,8 @@ type TerminalViewProps = {
   startCwd?: string; // the folder the shell starts in; read once, when the session is created
   fontFamily: string;
   theme: ITheme;
+  visible: boolean;
+  gpuAcceleration: GpuAcceleration
 }
 
 const TerminalView = ({
@@ -56,6 +58,8 @@ const TerminalView = ({
   startCwd,
   fontFamily,
   theme,
+  visible,
+  gpuAcceleration
 }: TerminalViewProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const onExitRef = useRef(onExit);
@@ -100,16 +104,14 @@ const TerminalView = ({
   useEffect(() => {
 
     if (!containerRef.current) return;
-    let unlisten: (() => void) | undefined;
+
     let unlistenExit: (() => void) | undefined;
     let pendingExits: string[] = [];
     let inputSubscription: IDisposable | undefined;
-    let pendingOutput: TerminalOutput[] = [];
     let cancelled = false;
     let commandStart: IMarker | undefined;
 
-    // Effect-local on purpose: a shared ref could be overwritten by a later
-    // effect run (e.g. StrictMode remount) and cause the wrong session to close.
+
     let sessionId: string | null = null;
 
     let lastRows = 0;
@@ -286,15 +288,13 @@ const TerminalView = ({
       activateRef.current = undefined;
       refitRef.current = undefined;
 
-      unlisten?.();
-      unlisten = undefined;
       unlistenExit?.();
       unlistenExit = undefined;
       pendingExits = [];
       observer.disconnect();
       inputSubscription?.dispose();
       inputSubscription = undefined;
-      pendingOutput = [];
+
 
       const id = sessionId;
       sessionId = null;
@@ -311,27 +311,6 @@ const TerminalView = ({
     const setup = async () => {
 
       try {
-        //register the listener first, before session creation.
-        const stopListening = await listen<TerminalOutput>("terminal-output", (event) => {
-          if (cancelled) return;
-
-          const output = event.payload
-
-          if (sessionId === null) {
-            pendingOutput.push(output);
-            return;
-          }
-          if (output.terminal_id !== sessionId) return;
-
-          terminal.write(new Uint8Array(output.data))
-        });
-        if (cancelled) {
-          stopListening();
-          return;
-        }
-
-        unlisten = stopListening;
-
         const stopListeningExit = await listen<TerminalExit>("terminal-exit", (event) => {
           if (cancelled) return;
 
@@ -357,7 +336,19 @@ const TerminalView = ({
         const rows = terminal.rows;
         const cols = terminal.cols;
 
-        const createdId = await invoke<string>("create_session", { rows, cols, cwd: startCwdRef.current });
+        // this session's output only, as raw bytes; it exists before the PTY does, so nothing is lost
+        const onOutput = new Channel<ArrayBuffer>();
+        onOutput.onmessage = (data) => {
+          if (cancelled) return;
+          terminal.write(new Uint8Array(data));
+        };
+
+        const createdId = await invoke<string>("create_session", {
+          rows,
+          cols,
+          cwd: startCwdRef.current,
+          onOutput,
+        });
 
         if (cancelled) {
           // unmounted while the session was being created: close it ourselves
@@ -369,13 +360,6 @@ const TerminalView = ({
         lastRows = rows;
         lastCols = cols;
 
-        for (const output of pendingOutput) {
-          if (output.terminal_id !== createdId) continue;
-
-          terminal.write(new Uint8Array(output.data))
-        }
-
-        pendingOutput = [];
 
         // the shell may have exited before we knew our session id
         if (pendingExits.includes(createdId)) {
@@ -405,6 +389,40 @@ const TerminalView = ({
 
     return cleanup;
   }, [])
+
+  // GPU renderer only while the tab is on screen;
+  useEffect(() => {
+    const terminal = terminalRef.current;
+    const wanted = visible && (gpuAcceleration === 'on' || (gpuAcceleration === 'auto' && !webglUnsupported));
+
+    if (!terminal || !wanted) return;
+
+    let webgl: WebglAddon | undefined;
+
+    try {
+      webgl = new WebglAddon();
+      webgl.onContextLoss(() => {
+        webgl?.dispose();
+        webgl = undefined;
+        refitRef.current?.();
+      });
+      terminal.loadAddon(webgl);
+    } catch (e) {
+      webgl = undefined;
+      webglUnsupported = true;
+      console.warn('WebGL renderer unavailable, using DOM renderer', e);
+      return;
+    }
+
+    const onFocus = () => webgl?.clearTextureAtlas();
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      webgl?.dispose();
+      refitRef.current?.();
+    }
+  }, [visible, gpuAcceleration])
 
   useEffect(() => {
     if (active) activateRef.current?.();
